@@ -1,0 +1,9 @@
+ERROR: 'Product' object has no attribute 'quantity'
+Traceback (most recent call last):
+  File "C:\Users\Satwik\Downloads\git\Aipoweredinventorysystem\Backend\ai.py", line 196, in handle_ai_command
+    "stock": product.quantity     # Available stock
+  File "C:\Users\Satwik\AppData\Local\Programs\Python\Python310\lib\site-packages\pydantic\main.py", line 1026, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'Product' object has no attribute 'quantity'
+
+--------------------

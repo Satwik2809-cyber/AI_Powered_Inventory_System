@@ -1,0 +1,35 @@
+# Core framework
+fastapi
+uvicorn
+
+# Database & ORM
+sqlmodel
+sqlalchemy
+psycopg2-binary
+
+# Authentication & Security
+python-jose
+passlib[bcrypt]
+
+# Environment & Config
+python-dotenv
+
+# Date & Time utilities
+pytz
+
+# File handling (images, uploads later)
+python-multipart
+
+# Validation & utilities
+# Validation & utilities
+pydantic
+
+# Scientific & AI
+torch
+torchvision
+easyocr
+
+# Imaging
+pillow
+imagehash
+

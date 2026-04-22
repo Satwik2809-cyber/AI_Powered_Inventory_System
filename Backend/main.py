@@ -1,0 +1,87 @@
+from fastapi import FastAPI, APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import shutil, os
+from sqlmodel import Session, select
+from database import get_db
+import traceback
+from datetime import date
+from auth_and_users import get_current_user
+from models import Product, Sale, Event, ProductBatch
+from user_dashboard import router as user_dashboard_router
+from auth_and_users import router as auth_router
+from inventory import router as inventory_router
+from sales_and_events import router as sales_router
+from routers.reports import router as reports_router
+from image_match import match_product_image, decide_image_match
+from ai import AICommand, handle_ai_command
+from alert_service import get_alerts, mark_alert_seen
+app = FastAPI(
+    title="AI Powered Inventory System",
+    version="1.0.0"
+)
+
+import os
+if not os.path.exists("product_images"):
+    os.makedirs("product_images")
+
+app.mount("/product_images", StaticFiles(directory="product_images"), name="product_images")
+
+@app.on_event("startup")
+def on_startup():
+    from database import create_db_and_tables
+    create_db_and_tables()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Core routers
+app.include_router(auth_router)
+app.include_router(inventory_router)
+app.include_router(sales_router)
+app.include_router(user_dashboard_router)
+app.include_router(reports_router)
+# AI Router
+ai_router = APIRouter(tags=["AI Assistant"])
+
+@ai_router.post("/ai/command", response_model=None)
+def ai_command(cmd: AICommand):
+    return handle_ai_command(cmd)
+
+from fastapi import FastAPI, APIRouter, UploadFile, File, Depends, HTTPException, Form
+
+@ai_router.post("/ai/image-match")
+def image_match_api(
+    file: UploadFile = File(...),
+    context: str = Form(None),
+    event_name: str = Form(None)
+):
+    temp_path = f"temp_{file.filename}"
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    matches = match_product_image(temp_path, top_k=5, context=context, event_name=event_name)
+    decision = decide_image_match(matches)
+    os.remove(temp_path)
+    return decision
+app.include_router(ai_router)
+alert_router = APIRouter(prefix="/alerts", tags=["Alerts"])
+
+@alert_router.get("")
+def fetch_alerts():
+    return get_alerts()
+
+@alert_router.post("/{alert_id}/seen")
+def seen_alert(alert_id: int):
+    mark_alert_seen(alert_id)
+    return {"status": "ok"}
+
+app.include_router(alert_router)
+@app.get("/")
+def root():
+    return {"status": "Backend running successfully"}
