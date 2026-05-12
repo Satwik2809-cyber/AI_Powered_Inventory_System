@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from database import get_db
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
+from pydantic import BaseModel
 from models import Sale, Event, EventSale, Product, MonthlyCount, SaleItem, EventSaleItem, ProductBatch, User, StockHistory
 import json
 import math
@@ -154,8 +155,17 @@ def get_monthly_status(session: Session = Depends(get_db)):
         }
     return {"status": "none"}
 
+class StartCountRequest(BaseModel):
+    month: Optional[int] = None
+    year: Optional[int] = None
+
 @router.post("/monthly/start")
-def start_monthly_count(session: Session = Depends(get_db)):
+def start_monthly_count(
+    req: StartCountRequest,
+    session: Session = Depends(get_db)
+):
+    month = req.month
+    year = req.year
     # 1. Check if already counting
     existing = session.exec(
         select(MonthlyCount).where(MonthlyCount.status == "counting")
@@ -163,20 +173,24 @@ def start_monthly_count(session: Session = Depends(get_db)):
     if existing:
         raise HTTPException(400, "Already in counting mode")
 
-    # 2. Determine Start Date (First of current month usually, or day after last confirmed)
-    # Strategy: Look for last confirmed report.
-    last_confirmed = session.exec(
-        select(MonthlyCount)
-        .where(MonthlyCount.status == "confirmed")
-        .order_by(MonthlyCount.end_date.desc())
-    ).first()
-    
-    if last_confirmed and last_confirmed.end_date:
-         start_date = last_confirmed.end_date # Next period starts where last ended
+    # 2. Determine Start Date
+    if month is not None and year is not None:
+        # JS months are 0-indexed, but the backend stores as datetime. 
+        # We'll use the provided month/year.
+        start_date = datetime(year, month + 1, 1)
     else:
-         # Default to 1st of current month if no history
-         now = datetime.utcnow()
-         start_date = datetime(now.year, now.month, 1)
+        # Look for last confirmed report.
+        last_confirmed = session.exec(
+            select(MonthlyCount)
+            .where(MonthlyCount.status == "confirmed")
+            .order_by(MonthlyCount.end_date.desc())
+        ).first()
+        
+        if last_confirmed and last_confirmed.end_date:
+             start_date = last_confirmed.end_date 
+        else:
+             now = datetime.utcnow()
+             start_date = datetime(now.year, now.month, 1)
 
     # 3. Create Draft Record with Cutoff (End Date)
     now = datetime.utcnow()
@@ -574,3 +588,88 @@ def cancel_monthly_count(session: Session = Depends(get_db)):
     session.commit()
     
     return {"message": "Monthly count cancelled and state reset."}
+
+import pandas as pd
+import io
+from fastapi.responses import StreamingResponse
+
+@router.get("/monthly/export/excel")
+def export_monthly_report_excel(
+    month: int,
+    year: int,
+    two_sheets: bool = False,
+    session: Session = Depends(get_db)
+):
+    # Reuse the logic from get_monthly_report to find the data
+    target_month = month + 1
+    target_year = year
+    
+    reports = session.exec(
+        select(MonthlyCount)
+        .where(MonthlyCount.status == "confirmed")
+    ).all()
+    
+    matching_report = None
+    for r in reports:
+        if r.start_date.month == target_month and r.start_date.year == target_year:
+            matching_report = r
+            break
+            
+    if not matching_report:
+        # Check for active draft if requested month is current month
+        active = session.exec(
+            select(MonthlyCount).where(MonthlyCount.status == "counting")
+        ).first()
+        if active and active.start_date.month == target_month and active.start_date.year == target_year:
+            matching_report = active
+            # For draft, we need to generate the report data (simulating finalize/draft logic)
+            # This is complex, so for now let's just use the draft logic or raise error
+            raise HTTPException(400, "Draft reports cannot be exported as Excel yet. Please finalize first.")
+        else:
+            raise HTTPException(404, "No report found for this period")
+
+    detailed_data = json.loads(matching_report.detailed_report)
+    breakdown = detailed_data.get("breakdown", [])
+    
+    # Sheet 1: Summary Stats
+    summary_data = [
+        ["Report Period", f"{matching_report.start_date.strftime('%Y-%m-%d')} to {matching_report.end_date.strftime('%Y-%m-%d') if matching_report.end_date else 'Now'}"],
+        ["Grand Total Revenue", matching_report.grand_total],
+        ["Total Cash", matching_report.total_cash],
+        ["Total Online", matching_report.total_online],
+        ["Daily Sales Count", detailed_data.get("daily_sales_count", 0)],
+        ["Event Sales Count", detailed_data.get("event_sales_count", 0)],
+        ["Generated At", detailed_data.get("generated_at", "N/A")]
+    ]
+    df_summary = pd.DataFrame(summary_data, columns=["Metric", "Value"])
+
+    # Sheet 2: Detailed Breakdown (User -> Product -> Qty/Amount)
+    detailed_rows = []
+    for user_entry in breakdown:
+        user_name = user_entry.get("user")
+        for prod in user_entry.get("products", []):
+            detailed_rows.append({
+                "User": user_name,
+                "Product": prod.get("name"),
+                "Quantity": prod.get("qty"),
+                "Amount": prod.get("amount")
+            })
+    df_detailed = pd.DataFrame(detailed_rows)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_summary.to_excel(writer, index=False, sheet_name="Monthly Summary")
+        if two_sheets:
+            df_detailed.to_excel(writer, index=False, sheet_name="Itemized Breakdown")
+        else:
+            # If not two_sheets, maybe they want everything in one? 
+            # But the requirement said "one excel have two sheet of that month"
+            df_detailed.to_excel(writer, index=False, sheet_name="Detailed Sales")
+
+    output.seek(0)
+    filename = f"Monthly_Report_{year}_{month+1}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

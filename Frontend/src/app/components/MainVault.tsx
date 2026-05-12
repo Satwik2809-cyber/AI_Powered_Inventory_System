@@ -24,7 +24,7 @@ import {
 import AISpeech from "./AISpeech";
 import CameraScan from "./CameraScan";
 
-import { apiGet, apiPost, apiDownload, apiDelete, apiPostFile, apiPut } from "../api";
+import { apiGet, apiPost, apiDownload, apiDelete, apiPostFile, apiPut, apiPostFormData } from "../api";
 import { User } from "./type";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -286,6 +286,35 @@ export default function MainVault({
       toast.error("Failed to load global images");
     } finally {
       setLoadingGlobalImages(false);
+    }
+  }
+
+  async function handleDeleteLibraryImage(filename: str) {
+    if (!confirm(`Delete ${filename} from library?`)) return;
+    try {
+      await apiDelete(`/products/all-images/${filename}`);
+      toast.success("Image deleted");
+      loadGlobalImages();
+    } catch {
+      toast.error("Delete failed");
+    }
+  }
+
+  async function handleUpdateLibraryImage(filename: str, e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append("filename", filename);
+    formData.append("file", file);
+
+    try {
+      toast.info("Updating image...");
+      await apiPostFormData(`/products/all-images/update`, formData);
+      toast.success("Image updated successfully");
+      loadGlobalImages();
+      loadProducts();
+    } catch {
+      toast.error("Update failed");
     }
   }
 
@@ -1048,10 +1077,25 @@ export default function MainVault({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
                 {globalImages.map((img, idx) => (
                   <div key={idx} className="relative group rounded-xl overflow-hidden border border-white/10 flex flex-col bg-black/40">
-                    <div className="aspect-square w-full overflow-hidden">
+                    <div className="aspect-square w-full overflow-hidden relative">
                       <img src={import.meta.env.VITE_API_BASE_URL + img.url} alt={img.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      
+                      {/* Action Overlay */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                         <label className="p-2 bg-blue-600 hover:bg-blue-500 rounded-full cursor-pointer transition-transform hover:scale-110" title="Update/Replace">
+                            <Upload className="h-4 w-4 text-white" />
+                            <input type="file" accept="image/*" hidden onChange={(e) => handleUpdateLibraryImage(img.name, e)} />
+                         </label>
+                         <button 
+                            className="p-2 bg-rose-600 hover:bg-rose-500 rounded-full transition-transform hover:scale-110" 
+                            title="Delete"
+                            onClick={() => handleDeleteLibraryImage(img.name)}
+                         >
+                            <Trash2 className="h-4 w-4 text-white" />
+                         </button>
+                      </div>
                     </div>
-                    <div className="p-2 truncate text-xs text-slate-300 text-center bg-white/5 border-t border-white/5" title={img.name}>
+                    <div className="p-2 truncate text-[10px] text-slate-400 text-center bg-white/5 border-t border-white/5" title={img.name}>
                       {img.name}
                     </div>
                   </div>

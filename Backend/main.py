@@ -13,6 +13,7 @@ from auth_and_users import router as auth_router
 from inventory import router as inventory_router
 from sales_and_events import router as sales_router
 from routers.reports import router as reports_router
+from developer import router as developer_router
 from image_match import match_product_image, decide_image_match
 from ai import AICommand, handle_ai_command
 from alert_service import get_alerts, mark_alert_seen
@@ -46,6 +47,7 @@ app.include_router(inventory_router)
 app.include_router(sales_router)
 app.include_router(user_dashboard_router)
 app.include_router(reports_router)
+app.include_router(developer_router)
 # AI Router
 ai_router = APIRouter(tags=["AI Assistant"])
 

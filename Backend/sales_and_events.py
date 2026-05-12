@@ -551,6 +551,7 @@ def admin_day_summary(event_name: str, day_number: int):
         online = 0
         user_summary = {}
         item_summary = {}
+        detailed_sales = []
         for sale in sales:
             if sale.payment_mode == "cash":
                 cash += sale.total_amount
@@ -571,6 +572,8 @@ def admin_day_summary(event_name: str, day_number: int):
                 .join(Product, EventSaleItem.product_id == Product.id)
                 .where(EventSaleItem.event_sale_id == sale.id)
             ).all()
+            
+            sale_items_detail = []
             for si, p in items:
                 if p.id not in item_summary:
                     item_summary[p.id] = {
@@ -583,6 +586,22 @@ def admin_day_summary(event_name: str, day_number: int):
                 item_summary[p.id]["quantity_sold"] += si.quantity
                 item_summary[p.id]["total_price"] += (si.quantity * si.rate)
                 
+                sale_items_detail.append({
+                    "name": p.name,
+                    "quantity": si.quantity,
+                    "rate": si.rate,
+                    "total": si.quantity * si.rate
+                })
+                
+            detailed_sales.append({
+                "id": sale.id,
+                "timestamp": sale.timestamp.isoformat() if hasattr(sale, "timestamp") and sale.timestamp else "",
+                "payment_mode": sale.payment_mode,
+                "total_amount": sale.total_amount,
+                "seller_name": username,
+                "items": sale_items_detail
+            })
+                
         stock_summary_list = list(item_summary.values())
 
         return {
@@ -593,7 +612,8 @@ def admin_day_summary(event_name: str, day_number: int):
             "online_total": online,
             "grand_total": cash + online,
             "user_wise_total": user_summary,
-            "stock_summary": stock_summary_list
+            "stock_summary": stock_summary_list,
+            "detailed_sales": detailed_sales
         }
 
 @router.post("/events/close")
@@ -845,6 +865,9 @@ def download_event_excel_summary(event_name: str):
 
         wb = openpyxl.Workbook()
         
+        # Sort event_stocks by category and name for grouping
+        event_stocks = sorted(event_stocks, key=lambda x: (x[1].category or "Uncategorized", x[1].name))
+
         # ==========================================
         # SHEET 1: OVERALL SUMMARY
         # ==========================================
@@ -858,8 +881,17 @@ def download_event_excel_summary(event_name: str):
             cell.font = openpyxl.styles.Font(bold=True)
             
         grand_total_sale = 0
+        current_cat_summary = None
             
         for stock, product in event_stocks:
+            cat = product.category or "Uncategorized"
+            if cat != current_cat_summary:
+                current_cat_summary = cat
+                overall_ws.append([f"--- {cat.upper()} ---", "", "", "", "", "", ""])
+                for col_idx in range(1, len(headers)+1):
+                    overall_ws.cell(row=overall_ws.max_row, column=col_idx).font = openpyxl.styles.Font(bold=True, italic=True)
+                    overall_ws.cell(row=overall_ws.max_row, column=col_idx).fill = openpyxl.styles.PatternFill(start_color="EFEFEF", end_color="EFEFEF", fill_type="solid")
+
             qty_taken = stock.quantity_taken
             qty_remaining = stock.quantity_remaining
             qty_sold = qty_taken - qty_remaining
@@ -923,8 +955,17 @@ def download_event_excel_summary(event_name: str):
                     cell.font = openpyxl.styles.Font(bold=True)
                 
                 day_grand_total = 0
+                current_cat_day = None
                 
                 for stock, product in event_stocks:
+                    cat = product.category or "Uncategorized"
+                    if cat != current_cat_day:
+                        current_cat_day = cat
+                        day_ws.append([f"--- {cat.upper()} ---", "", "", "", "", "", ""])
+                        for col_idx in range(1, len(headers)+1):
+                            day_ws.cell(row=day_ws.max_row, column=col_idx).font = openpyxl.styles.Font(bold=True, italic=True)
+                            day_ws.cell(row=day_ws.max_row, column=col_idx).fill = openpyxl.styles.PatternFill(start_color="EFEFEF", end_color="EFEFEF", fill_type="solid")
+
                     day_key = f"day_{day}"
                     
                     # Quantity sold on this day specifically

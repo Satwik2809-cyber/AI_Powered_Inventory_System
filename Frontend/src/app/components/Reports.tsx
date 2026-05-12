@@ -171,13 +171,17 @@ export default function Reports() {
   /* ================= ACTIONS ================= */
 
   async function startMonthlyCount() {
-    if (!confirm("Start Monthly Count? This will pause/redirect sales to the next period.")) return;
+    const monthName = months[parseInt(selectedMonth)];
+    if (!confirm(`Start Monthly Count for ${monthName} ${selectedYear}? This will pause/redirect sales to this period.`)) return;
     try {
-      await apiPost("/reports/monthly/start", {});
-      toast.success("Monthly Count Started");
+      await apiPost("/reports/monthly/start", { 
+        month: parseInt(selectedMonth), 
+        year: parseInt(selectedYear) 
+      });
+      toast.success(`Monthly Count Started for ${monthName}`);
       loadStatus();
-    } catch {
-      toast.error("Failed to start count");
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || "Failed to start count");
     }
   }
 
@@ -212,58 +216,42 @@ export default function Reports() {
     }
   }
 
-  function exportToCSV() {
-    let reportToExport = null;
-    let periodTitle = "Monthly_Report";
-
-    if (monthlyStatus === "counting" && draftReport) {
-      reportToExport = draftReport;
-      periodTitle = `Draft_Report_${draftReport.period?.start?.split("T")[0]}_to_Now`;
-    } else if (monthlyStatus === "none" && monthlyReport) {
-      reportToExport = monthlyReport;
-      periodTitle = `Finalized_Report_${months[selectedMonth]}_${selectedYear}`;
-    }
-
-    if (!reportToExport || !reportToExport.breakdown || !reportToExport.breakdown.detailed_sales) {
-      toast.error("No detailed report data available to export");
-      return;
-    }
-
-    const rows = [];
-    rows.push(["User", "Product", "Quantity", "Amount"]);
-
-    reportToExport.breakdown.detailed_sales.forEach((userStats: any) => {
-      userStats.products.forEach((p: any) => {
-        rows.push([
-          `"${userStats.user}"`,
-          `"${p.name}"`,
-          p.qty,
-          p.amount
-        ]);
-      });
-      // Add a subtotal row for the user
-      rows.push([`"${userStats.user} Total"`, "", "", userStats.total_user_sales]);
-    });
-
-    // Add Grand Totals
-    rows.push([]);
-    rows.push(["GRAND TOTALS", "", "", ""]);
-    rows.push(["Daily Sales Total", "", "", reportToExport.revenue?.daily_sales || 0]);
-    rows.push(["Event Sales Total", "", "", reportToExport.revenue?.event_sales || 0]);
-    rows.push(["Total Revenue", "", "", reportToExport.revenue?.total || 0]);
-
-    const csvContent = rows.map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${periodTitle}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
     toast.success("Report Exported to CSV");
+  }
+
+  async function exportToExcel(twoSheets: boolean = false) {
+    try {
+      const filename = `Monthly_Report_${selectedYear}_${parseInt(selectedMonth)+1}${twoSheets ? '_Detailed' : ''}.xlsx`;
+      const url = `/reports/monthly/export/excel?month=${selectedMonth}&year=${selectedYear}&two_sheets=${twoSheets}`;
+      
+      toast.info("Preparing Excel Download...");
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Export failed");
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(link);
+      
+      toast.success("Excel Export Successful");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export Excel");
+    }
   }
 
   /* ================= VALUES ================= */
@@ -301,18 +289,24 @@ export default function Reports() {
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3">
             {monthlyStatus === "none" && (
               <Button onClick={startMonthlyCount} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold h-12 shadow-lg shadow-indigo-500/25 border-0 rounded-xl px-6">
                 <PlayCircle className="mr-2 h-5 w-5" />
-                Start Monthly Count
+                Start {months[parseInt(selectedMonth)]} Count
               </Button>
             )}
 
-            <Button onClick={exportToCSV} className="bg-white/10 hover:bg-white/20 text-white border border-white/10 h-12 rounded-xl px-6 backdrop-blur-md">
-              <Download className="h-5 w-5 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => exportToExcel(false)} className="bg-white/10 hover:bg-white/20 text-white border border-white/10 h-12 rounded-xl px-4 backdrop-blur-md text-sm">
+                <Download className="h-4 w-4 mr-2" />
+                Monthly History
+              </Button>
+              <Button onClick={() => exportToExcel(true)} className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 h-12 rounded-xl px-4 backdrop-blur-md text-sm">
+                <Download className="h-4 w-4 mr-2" />
+                Last Two Sheets
+              </Button>
+            </div>
           </div>
         </div>
       </div>

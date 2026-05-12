@@ -102,6 +102,29 @@ export async function apiDelete(path: string) {
   if (!res.ok) throw new Error("API Error");
   return res.json();
 }
+
+export async function apiPostFormData(path: string, formData: FormData) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      ...getAuthHeaders(),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let errorData = null;
+    try {
+      errorData = await res.json();
+    } catch (e) {}
+    const err = new Error(errorData?.detail || "Upload failed");
+    (err as any).response = { data: errorData };
+    throw err;
+  }
+
+  return res.json();
+}
 export const apiGet1 = (url: string) =>
   fetch(url, { headers: getAuthHeaders() }).then(res => res.json());
 

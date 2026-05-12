@@ -481,7 +481,7 @@ async def import_products_from_excel(
                 try:
                     m = pd.to_datetime(row["manufacturing_date"]).date()
                     e = pd.to_datetime(row["expiry_date"]).date()
-                    if not pd.isna(m) and not pd.isna(e) and e > m:
+                    if not pd.isna(m) and not pd.isna(e) and e >= m:
                         mfg = m
                         exp = e
                 except:
@@ -739,3 +739,36 @@ def get_all_product_images():
         pass
         
     return {"images": images}
+
+@router.delete("/products/all-images/{filename}")
+def delete_library_image(filename: str):
+    filepath = os.path.join(PRODUCT_IMAGE_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(404, "Image not found")
+    
+    try:
+        os.remove(filepath)
+        # Remove from hash cache if exists
+        if filepath in _IMAGE_HASH_CACHE:
+            del _IMAGE_HASH_CACHE[filepath]
+        return {"message": "Image deleted successfully"}
+    except Exception as e:
+        raise HTTPException(500, f"Delete failed: {str(e)}")
+
+@router.post("/products/all-images/update")
+def update_library_image(filename: str = Form(...), file: UploadFile = File(...)):
+    filepath = os.path.join(PRODUCT_IMAGE_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(404, "Image not found")
+    
+    try:
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Invalidate cache
+        if filepath in _IMAGE_HASH_CACHE:
+            del _IMAGE_HASH_CACHE[filepath]
+            
+        return {"message": "Image updated successfully"}
+    except Exception as e:
+        raise HTTPException(500, f"Update failed: {str(e)}")

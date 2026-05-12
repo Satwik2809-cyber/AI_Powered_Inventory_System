@@ -86,6 +86,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
   const [remainingStock, setRemainingStock] = useState<any[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [editData, setEditData] = useState({ name: "", mode: "single-day", start_date: "", days: 2 });
+  const [viewLedgersOpen, setViewLedgersOpen] = useState(false);
 
   /* ---------------- LOAD EVENTS ---------------- */
   useEffect(() => { loadEvents(); }, []);
@@ -729,6 +730,12 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                       <h2 className="text-3xl font-black text-emerald-400">₹{daySummary.grand_total?.toLocaleString()}</h2>
                     </div>
                   </div>
+                  
+                  <div className="flex justify-center mt-2">
+                     <Button variant="outline" className="w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={() => setViewLedgersOpen(true)}>
+                        <FileText className="w-4 h-4 mr-2" /> View Detailed Sales Ledger
+                     </Button>
+                  </div>
 
                   {/* ITEM GRID */}
                   {daySummary.stock_summary && daySummary.stock_summary.length > 0 && (
@@ -801,6 +808,10 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-lg px-4 py-1">₹{daySummary.grand_total?.toLocaleString()}</Badge>
                            <p className="text-xs text-indigo-300 uppercase tracking-widest">{daySummary.sales} operations</p>
                         </div>
+                        
+                        <Button variant="outline" className="w-full mb-4 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 h-8 text-xs" onClick={(e) => { e.stopPropagation(); setViewLedgersOpen(true); }}>
+                            <FileText className="w-3 h-3 mr-2" /> Detailed Ledger
+                        </Button>
                         
                         {daySummary.stock_summary && daySummary.stock_summary.length > 0 && (
                           <div className="mt-4 bg-black/30 p-3 rounded-xl border border-white/5">
@@ -1034,6 +1045,45 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
       `}</style>
+      {/* DETAILED LEDGERS DIALOG */}
+      <Dialog open={viewLedgersOpen} onOpenChange={setViewLedgersOpen}>
+        <DialogContent className="sm:max-w-[700px] bg-slate-900/95 border border-white/20 text-white backdrop-blur-3xl rounded-3xl shadow-2xl">
+          <DialogHeader className="border-b border-white/10 pb-4">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2"><FileText className="text-blue-400" /> Detailed Event Ledgers - Phase {daySummary?.day}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+             {!daySummary?.detailed_sales || daySummary.detailed_sales.length === 0 ? (
+               <p className="text-slate-400 text-center py-8">No transactions processed for this phase yet.</p>
+             ) : (
+               <div className="space-y-3">
+                 {daySummary.detailed_sales.map((sale: any) => (
+                   <div key={sale.id} className="bg-black/30 border border-white/5 rounded-xl p-4">
+                     <div className="flex justify-between items-center mb-3">
+                       <div>
+                         <p className="font-bold text-white flex items-center gap-2">Receipt #{sale.id} <Badge className="bg-white/10 text-xs">{sale.payment_mode}</Badge></p>
+                         <p className="text-xs text-slate-400 mt-1">{sale.timestamp ? new Date(sale.timestamp).toLocaleString() : 'Live Sale'}</p>
+                       </div>
+                       <div className="text-right">
+                         <p className="font-black text-emerald-400 text-xl">₹{sale.total_amount.toLocaleString()}</p>
+                         <p className="text-xs text-blue-300 font-bold mt-1 uppercase tracking-wider">{sale.seller_name}</p>
+                       </div>
+                     </div>
+                     <div className="space-y-1 bg-white/5 rounded-lg p-2">
+                        {sale.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-slate-300">{item.name} <span className="text-[10px] text-slate-500">x{item.quantity}</span></span>
+                            <span className="text-white">₹{item.total.toLocaleString()}</span>
+                          </div>
+                        ))}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
