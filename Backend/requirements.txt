@@ -1,6 +1,6 @@
 # Core framework
 fastapi
-uvicorn
+uvicorn[standard]
 
 # Database & ORM
 sqlmodel
@@ -8,28 +8,33 @@ sqlalchemy
 psycopg2-binary
 
 # Authentication & Security
-python-jose
+python-jose[cryptography]
 passlib[bcrypt]
 
 # Environment & Config
 python-dotenv
 
-# Date & Time utilities
+# Date & Time
 pytz
 
-# File handling (images, uploads later)
+# File handling
 python-multipart
 
-# Validation & utilities
-# Validation & utilities
+# Validation
 pydantic
 
-# Scientific & AI
-torch
-torchvision
-easyocr
+# Excel / Data
+pandas
+openpyxl
+
+# Fuzzy matching (AI commands)
+thefuzz
+python-Levenshtein
 
 # Imaging
 pillow
 imagehash
 
+# NOTE: torch, torchvision, easyocr are intentionally excluded from production.
+# They are very large (2-5 GB) and will cause Render build to time out / fail.
+# image_match.py gracefully degrades if torch is not installed.

@@ -8,6 +8,8 @@ from sqlmodel import Session, select
 from database import get_db
 import traceback
 from datetime import date
+from dotenv import load_dotenv
+load_dotenv()
 from auth_and_users import get_current_user
 from models import Product, Sale, Event, ProductBatch
 from user_dashboard import router as user_dashboard_router
@@ -41,9 +43,19 @@ if not os.path.exists("product_images"):
 app.mount("/product_images", StaticFiles(directory="product_images"), name="product_images")
 
 
+# CORS: allow localhost (dev) + any Vercel deployment URL + optional FRONTEND_URL env
+_frontend_url = os.getenv("FRONTEND_URL", "")
+ALLOW_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+if _frontend_url:
+    ALLOW_ORIGINS.append(_frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=ALLOW_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # covers all Vercel preview + prod URLs
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

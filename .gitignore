@@ -12,7 +12,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -29,12 +28,19 @@ share/python-wheels/
 MANIFEST
 
 # Virtual Environment
-.env
 .venv/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Environment files (backend secrets stay local only)
+Backend/.env
+
+# Database files (never commit actual DB)
+*.db
+*.sqlite
+*.sqlite3
 
 # Testing
 .pytest_cache/
@@ -62,3 +68,10 @@ tests/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Product images (large binary files - manage separately if needed)
+Backend/product_images/*
+!Backend/product_images/.gitkeep
