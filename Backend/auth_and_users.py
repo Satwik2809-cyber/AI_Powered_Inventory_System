@@ -87,6 +87,24 @@ class UserCreateRequest(BaseModel):
     assigned_areas: list[str] = []
     assigned_events: list[int] = []
 
+@router.get("/setup-admin")
+def setup_admin():
+    """One-time endpoint to set up admin on free Render tiers without shell access."""
+    with Session(engine) as session:
+        existing = session.exec(select(User)).first()
+        if existing:
+            return {"status": "error", "message": "Admin already exists. Setup disabled for security."}
+            
+        admin = User(
+            username="Admin",
+            name="Super Admin",
+            password_hash=hash_password("Admin123!"),
+            role="Admin"
+        )
+        session.add(admin)
+        session.commit()
+        return {"status": "success", "message": "Admin user created successfully! Username: Admin, Password: Admin123!"}
+
 @router.post("/users")
 def create_user(data: UserCreateRequest, current_user: User = Depends(require_admin)):
     with Session(engine) as session:
