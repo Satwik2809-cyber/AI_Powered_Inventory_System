@@ -5,7 +5,7 @@ uvicorn[standard]
 # Database & ORM
 sqlmodel
 sqlalchemy
-psycopg2-binary
+psycopg2-binary      # PostgreSQL driver (includes SSL support for Neon)
 
 # Authentication & Security
 python-jose[cryptography]
@@ -37,4 +37,4 @@ imagehash
 
 # NOTE: torch, torchvision, easyocr are intentionally excluded from production.
 # They are very large (2-5 GB) and will cause Render build to time out / fail.
-# image_match.py gracefully degrades if torch is not installed.
+# image_match.py gracefully degrades when torch is not installed.
