@@ -86,7 +86,10 @@ interface StockHistory {
 /* ================= COMPONENT ================= */
 export default function MainVault({
   currentUser,
-}: { currentUser: User; isAdmin: boolean; setCurrentView: any }) {
+  isAdmin,
+  setCurrentView,
+  initialTab = "products"
+}: { currentUser: User; isAdmin: boolean; setCurrentView: any; initialTab?: string }) {
   /* ---------------- STATE ---------------- */
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +99,7 @@ export default function MainVault({
   const [filterArea, setFilterArea] = useState("All");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
@@ -132,6 +136,7 @@ export default function MainVault({
   const [sellQty, setSellQty] = useState("");
   const [sellRate, setSellRate] = useState("");
   const [paymentMode, setPaymentMode] = useState("cash");
+  const [isGift, setIsGift] = useState(false);
   const [cart, setCart] = useState<SaleItem[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -158,6 +163,12 @@ export default function MainVault({
   useEffect(() => {
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   async function loadProducts() {
     setLoading(true);
@@ -289,7 +300,7 @@ export default function MainVault({
     }
   }
 
-  async function handleDeleteLibraryImage(filename: str) {
+  async function handleDeleteLibraryImage(filename: string) {
     if (!confirm(`Delete ${filename} from library?`)) return;
     try {
       await apiDelete(`/products/all-images/${filename}`);
@@ -300,7 +311,7 @@ export default function MainVault({
     }
   }
 
-  async function handleUpdateLibraryImage(filename: str, e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleUpdateLibraryImage(filename: string, e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     const formData = new FormData();
@@ -343,8 +354,8 @@ export default function MainVault({
         category: selectedProduct.category,
         rate: selectedProduct.rate,
         quantity: Number(restockQty),
-        manufacturing_date: restockMfg || undefined,
-        expiry_date: restockExp || undefined,
+        manufacturing_date: restockMfg || null,
+        expiry_date: restockExp || null,
       });
 
       toast.success("Stock added");
@@ -386,9 +397,10 @@ export default function MainVault({
     setCart([...cart, {
       product_id: product.id, name: product.name, category: product.category,
       quantity: qty, rate: sellRate ? Number(sellRate) : product.rate,
-    }]);
+      is_gift: isGift
+    } as any]);
 
-    setSellName(""); setSellQty(""); setSellRate("");
+    setSellName(""); setSellQty(""); setSellRate(""); setIsGift(false);
     toast.success(`${product.name} added`);
   }
 
@@ -446,7 +458,7 @@ export default function MainVault({
     return matchSearch && matchArea;
   });
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+  const cartTotal = cart.reduce((sum, item: any) => sum + (item.is_gift ? 0 : item.rate * item.quantity), 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   /* ================= UI ================= */
@@ -462,103 +474,105 @@ export default function MainVault({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <Box className="h-8 w-8 text-blue-400" />
-              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white tracking-tight">
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white tracking-tight">
                 Main Vault
               </h1>
             </div>
-            <p className="text-blue-200/80 text-lg max-w-xl">
+            <p className="text-blue-200/80 text-sm sm:text-lg max-w-xl">
               Centralized master inventory mapping and daily retail operations.
             </p>
           </div>
 
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button 
               variant="outline" 
-              className="bg-white/5 hover:bg-white/10 text-white border-white/20 h-12 px-5 rounded-xl font-bold shadow-lg transition-all hover:scale-105"
+              className="bg-white/5 hover:bg-white/10 text-white border-white/20 h-10 sm:h-12 px-3 sm:px-5 rounded-xl font-bold shadow-lg transition-all hover:scale-105 text-xs sm:text-base"
               onClick={() => {
                 setGlobalImageLibraryOpen(true);
                 loadGlobalImages();
               }}
             >
-              <ImageIcon className="h-5 w-5 mr-2 text-purple-400" /> Image Library
+              <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 text-purple-400" /> <span className="hidden xs:inline">Image Library</span>
             </Button>
+
 
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border-0 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 h-12 px-6 rounded-xl font-bold">
-                  <Plus className="h-5 w-5 mr-2" /> Add New Product
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border-0 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 h-10 sm:h-12 px-4 sm:px-6 rounded-xl font-bold text-xs sm:text-base">
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" /> <span className="hidden xs:inline">New Product</span><span className="xs:hidden">Add</span>
                 </Button>
               </DialogTrigger>
 
-            {/* ADD PRODUCT DIALOG */}
-            <DialogContent className="sm:max-w-[500px] border border-white/20 bg-slate-900/95 backdrop-blur-3xl text-white shadow-2xl rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2"><Plus className="text-blue-400" /> New Master Product</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300">Name</Label>
-                  <Input className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+              <DialogContent className="sm:max-w-[500px] border border-white/20 bg-slate-900/95 backdrop-blur-3xl text-white shadow-2xl rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold flex items-center gap-2"><Plus className="text-blue-400" /> New Master Product</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
                   <div className="space-y-1.5">
-                    <Label className="text-slate-300">Category</Label>
-                    <Select value={newProduct.category} onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}>
-                      <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
-                        {AREAS.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-slate-300">Name</Label>
+                    <Input className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300">Rate (₹)</Label>
-                    <Input type="number" className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.rate} onChange={(e) => setNewProduct({ ...newProduct, rate: e.target.value })} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300">Initial Quantity (Optional)</Label>
-                  <Input type="number" className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })} />
-                </div>
-                {newProduct.quantity && Number(newProduct.quantity) > 0 && (
-                  <div className="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300">MFG Date (Optional)</Label>
-                      <Input type="date" className="bg-slate-900 border-white/10 text-white focus:border-blue-500 [color-scheme:dark]" value={newProduct.manufacturing_date} onChange={(e) => setNewProduct({ ...newProduct, manufacturing_date: e.target.value })} />
+                      <Label className="text-slate-300">Category</Label>
+                      <Select value={newProduct.category} onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}>
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-blue-500">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
+                          {AREAS.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300">EXP Date (Optional)</Label>
-                      <Input type="date" className="bg-slate-900 border-white/10 text-white focus:border-blue-500 [color-scheme:dark]" value={newProduct.expiry_date} onChange={(e) => setNewProduct({ ...newProduct, expiry_date: e.target.value })} />
+                      <Label className="text-slate-300">Rate (₹)</Label>
+                      <Input type="number" className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.rate} onChange={(e) => setNewProduct({ ...newProduct, rate: e.target.value })} />
                     </div>
                   </div>
-                )}
-                <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl" onClick={handleAddProduct}>
-                  Create Product
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-300">Initial Quantity (Optional)</Label>
+                    <Input type="number" className="bg-white/5 border-white/10 text-white focus:border-blue-500" value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })} />
+                  </div>
+                  {newProduct.quantity && Number(newProduct.quantity) > 0 && (
+                    <div className="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300">MFG Date (Optional)</Label>
+                        <Input type="date" className="bg-slate-900 border-white/10 text-white focus:border-blue-500 [color-scheme:dark]" value={newProduct.manufacturing_date} onChange={(e) => setNewProduct({ ...newProduct, manufacturing_date: e.target.value })} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-slate-300">EXP Date (Optional)</Label>
+                        <Input type="date" className="bg-slate-900 border-white/10 text-white focus:border-blue-500 [color-scheme:dark]" value={newProduct.expiry_date} onChange={(e) => setNewProduct({ ...newProduct, expiry_date: e.target.value })} />
+                      </div>
+                    </div>
+                  )}
+                  <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl" onClick={handleAddProduct}>
+                    Create Product
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
 
       {/* CUSTOM GLASS TABS */}
-      <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl h-14">
-          <TabsTrigger value="products" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full">
-            <Package className="h-4 w-4 mr-2 hidden sm:inline" /> <span className="truncate">Master Inventory</span>
-          </TabsTrigger>
-          <TabsTrigger value="sell" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full">
-            <ShoppingCart className="h-4 w-4 mr-2 hidden sm:inline" /> <span className="truncate">Daily PoS</span>
-          </TabsTrigger>
-          <TabsTrigger value="ledger" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full">
-            <CalendarDays className="h-4 w-4 mr-2 hidden sm:inline" /> <span className="truncate">Ledger</span>
-          </TabsTrigger>
-          <TabsTrigger value="import" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full">
-            <TrendingUp className="h-4 w-4 mr-2 hidden sm:inline" /> <span className="truncate">Import/Export</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="overflow-x-auto pb-2 custom-scrollbar">
+          <TabsList className="inline-flex min-w-full sm:grid sm:grid-cols-4 bg-slate-900/50 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl h-14">
+            <TabsTrigger value="products" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full whitespace-nowrap px-4">
+              <Package className="h-4 w-4 mr-2 hidden sm:inline" /> <span>Master Inventory</span>
+            </TabsTrigger>
+            <TabsTrigger value="sell" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full whitespace-nowrap px-4">
+              <ShoppingCart className="h-4 w-4 mr-2 hidden sm:inline" /> <span>Daily PoS</span>
+            </TabsTrigger>
+            <TabsTrigger value="ledger" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full whitespace-nowrap px-4">
+              <CalendarDays className="h-4 w-4 mr-2 hidden sm:inline" /> <span>Ledger</span>
+            </TabsTrigger>
+            <TabsTrigger value="import" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all h-full whitespace-nowrap px-4">
+              <TrendingUp className="h-4 w-4 mr-2 hidden sm:inline" /> <span>Import/Export</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* PRODUCTS TAB */}
         <TabsContent value="products" className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -655,7 +669,7 @@ export default function MainVault({
 
         {/* DAILY POINT OF SALE TAB */}
         <TabsContent value="sell" className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[700px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[700px]">
 
             {/* Left Column: POS Entry */}
             <Card className="lg:col-span-8 bg-slate-900/90 border border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col overflow-hidden relative">
@@ -673,6 +687,10 @@ export default function MainVault({
                   </div>
                   <Input type="number" placeholder="₹ Rate" className="h-12 w-24 bg-black/40 border-white/10 text-emerald-300 rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellRate} onChange={(e) => setSellRate(e.target.value)} title="Override Rate (Optional)" />
                   <Input type="number" placeholder="Qty" className="h-12 w-24 bg-black/40 border-white/10 text-white rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellQty} onChange={(e) => setSellQty(e.target.value)} />
+                  <label className="flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 rounded-xl hover:bg-white/10 transition-colors">
+                    <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
+                    <span className="text-white font-bold">🎁</span>
+                  </label>
                   <Button onClick={addToCart} className="h-12 px-8 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/20">Add</Button>
                 </div>
 
@@ -715,14 +733,14 @@ export default function MainVault({
                       {cart.map((c, i) => (
                         <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-4 rounded-xl hover:bg-white/10 transition-colors">
                           <div className="flex-1 pr-4">
-                            <p className="font-bold text-white text-lg">{c.name}</p>
+                            <p className="font-bold text-white text-lg">{(c as any).name} {(c as any).is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0 text-sm">🎁 Gift</Badge>}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge className="bg-slate-800 text-slate-300 border-white/5 text-xs">Qty: {c.quantity}</Badge>
                               <span className="text-slate-500 text-sm">× ₹{c.rate}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="font-black text-xl text-teal-400">₹{(c.rate * c.quantity).toLocaleString()}</span>
+                            <span className={`font-black text-xl ${(c as any).is_gift ? 'text-slate-500 line-through' : 'text-teal-400'}`}>₹{(c.rate * c.quantity).toLocaleString()}</span>
                             <Button variant="ghost" size="icon" className="h-10 w-10 text-rose-400 hover:text-white hover:bg-rose-500/80 rounded-lg" onClick={() => removeFromCart(i)}>
                               <Trash2 className="h-5 w-5" />
                             </Button>

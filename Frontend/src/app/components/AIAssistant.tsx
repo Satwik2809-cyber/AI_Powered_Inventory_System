@@ -64,7 +64,7 @@ export default function AIAssistant() {
 
       {/* PANEL */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-40 w-96">
+        <div className="fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 z-40 w-auto sm:w-96">
           <Card className="shadow-2xl">
             <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
               <CardTitle className="flex items-center gap-2">

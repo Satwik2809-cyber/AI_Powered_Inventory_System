@@ -20,9 +20,9 @@ def user_dashboard(
         # ---------------- SALES ----------------
         # Get start of today (local time assumption or UTC based on server)
         # Better to grab everything from 00:00:00 today
-        today_start = datetime.combine(date.today(), datetime.min.time())
-        
         # 1. Daily Sales
+        # Fetch all and filter if needed, or refine query
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         daily_sales_list = session.exec(
             select(Sale).where(Sale.created_at >= today_start)
         ).all()
@@ -62,14 +62,25 @@ def user_dashboard(
         
         yesterday_revenue = sum(s.total_amount for s in yesterday_sales) + sum(e.total_amount for e in yesterday_events)
 
-        # MONTHLY
-        month_start = today_start.replace(day=1)
+        # MONTHLY — reset from last confirmed monthly count, not calendar month
+        from models import MonthlyCount
+        last_count = session.exec(
+            select(MonthlyCount)
+            .where(MonthlyCount.status == "confirmed")
+            .order_by(MonthlyCount.end_date.desc())
+        ).first()
+        
+        if last_count and last_count.end_date:
+            month_period_start = last_count.end_date
+        else:
+            # No finalized count: fall back to calendar month start
+            month_period_start = today_start.replace(day=1)
         
         month_sales = session.exec(
-            select(Sale).where(Sale.created_at >= month_start)
+            select(Sale).where(Sale.created_at >= month_period_start)
         ).all()
         month_events = session.exec(
-            select(EventSale).where(EventSale.created_at >= month_start)
+            select(EventSale).where(EventSale.created_at >= month_period_start)
         ).all()
         
         month_revenue = sum(s.total_amount for s in month_sales) + sum(e.total_amount for e in month_events)

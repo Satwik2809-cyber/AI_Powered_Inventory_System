@@ -42,7 +42,8 @@ import {
   ArrowLeft,
   Download,
   FileText,
-  X
+  X,
+  Gift
 } from "lucide-react";
 
 /* ---------------- TYPES (MATCH BACKEND) ---------------- */
@@ -77,7 +78,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
     name: "", mode: "single-day", open_sell: true, start_date: new Date().toISOString().split("T")[0], days: 2,
   });
 
-  const [packData, setPackData] = useState({ product_name: "", quantity: 0 });
+  const [packData, setPackData] = useState({ product_name: "", quantity: 0, is_gift: false });
   const [searchTerm, setSearchTerm] = useState("");
   const [packCart, setPackCart] = useState<any[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -165,8 +166,8 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
     if (!selectedProduct) return toast.error("Product not found");
     if (packData.quantity > selectedProduct.quantity) return toast.error(`Not enough stock (Only ${selectedProduct.quantity} available)`);
 
-    setPackCart([...packCart, { name: selectedProduct.name, category: selectedProduct.category, rate: selectedProduct.rate, quantity: packData.quantity }]);
-    setPackData({ product_name: "", quantity: 0 });
+    setPackCart([...packCart, { name: selectedProduct.name, category: selectedProduct.category, rate: selectedProduct.rate, quantity: packData.quantity, is_gift: packData.is_gift }]);
+    setPackData({ product_name: "", quantity: 0, is_gift: false });
     setSearchTerm("");
   }
 
@@ -542,24 +543,61 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
               <Button variant="ghost" size="icon" className="hover:bg-white/10 text-slate-400" onClick={loadHistory}><History className="w-4 h-4" /></Button>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[500px] overflow-y-auto custom-scrollbar p-4 space-y-3">
+              <div className="max-h-[500px] overflow-y-auto custom-scrollbar p-4 space-y-4">
                 {remainingStock.length === 0 ? (
                   <div className="text-center py-12 text-slate-500">
                     <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
                     <p>No items dispatched yet</p>
                   </div>
-                ) : remainingStock.map((s, idx) => (
-                  <div key={idx} className="bg-black/20 border border-white/5 p-4 rounded-2xl flex justify-between items-center group hover:bg-white/5 transition-colors">
-                    <div>
-                      <p className="font-bold text-white group-hover:text-purple-300 transition-colors">{s.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">₹{s.rate} ea</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-emerald-400">{s.quantity_remaining}</p>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Avail</p>
-                    </div>
-                  </div>
-                ))}
+                ) : (
+                  <>
+                    {/* Regular Items */}
+                    {remainingStock.filter((s: any) => !s.is_gift).length > 0 && (
+                      <div>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-2 px-1">Regular Stock</p>
+                        <div className="space-y-2">
+                          {remainingStock.filter((s: any) => !s.is_gift).map((s: any, idx: number) => (
+                            <div key={idx} className="bg-black/20 border border-white/5 p-4 rounded-2xl flex justify-between items-center group hover:bg-white/5 transition-colors">
+                              <div>
+                                <p className="font-bold text-white group-hover:text-purple-300 transition-colors">{s.name}</p>
+                                <p className="text-xs text-slate-500 mt-1">₹{s.rate} ea</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-black text-emerald-400">{s.quantity_remaining}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Avail</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gift Items */}
+                    {remainingStock.filter((s: any) => s.is_gift).length > 0 && (
+                      <div>
+                        <p className="text-xs text-rose-400 uppercase tracking-widest font-bold mb-2 px-1 flex items-center gap-1">
+                          <Gift className="w-3 h-3" /> Gift Pack
+                        </p>
+                        <div className="space-y-2">
+                          {remainingStock.filter((s: any) => s.is_gift).map((s: any, idx: number) => (
+                            <div key={idx} className="bg-rose-500/5 border border-rose-500/20 p-4 rounded-2xl flex justify-between items-center group hover:bg-rose-500/10 transition-colors">
+                              <div>
+                                <p className="font-bold text-white group-hover:text-rose-300 transition-colors flex items-center gap-1">
+                                  🎁 {s.name}
+                                </p>
+                                <p className="text-xs text-rose-400/70 mt-1">Gift — ₹0</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-black text-rose-400">{s.quantity_remaining}</p>
+                                <p className="text-[10px] text-rose-500/70 uppercase tracking-widest mt-1">Avail</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -880,9 +918,20 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
               ))}
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-slate-300 text-xs uppercase tracking-widest font-bold">Allocation Amount</Label>
-              <Input type="number" className="h-12 bg-black/30 border-white/10 text-white focus:border-purple-500 rounded-xl font-bold text-lg" value={packData.quantity || ''} onChange={(e) => setPackData({ ...packData, quantity: Number(e.target.value) })} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300 text-xs uppercase tracking-widest font-bold">Allocation Amount</Label>
+                <Input type="number" className="h-12 bg-black/30 border-white/10 text-white focus:border-purple-500 rounded-xl font-bold text-lg" value={packData.quantity || ''} onChange={(e) => setPackData({ ...packData, quantity: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-2 flex flex-col justify-end pb-1">
+                <div 
+                  className={`h-12 rounded-xl border flex items-center justify-center gap-2 cursor-pointer font-bold transition-colors ${packData.is_gift ? 'bg-rose-500/20 text-rose-400 border-rose-500/50' : 'bg-black/30 text-slate-400 border-white/10'}`}
+                  onClick={() => setPackData({ ...packData, is_gift: !packData.is_gift })}
+                >
+                  <Gift className="w-5 h-5" />
+                  {packData.is_gift ? 'Gift Item' : 'Regular Sale'}
+                </div>
+              </div>
             </div>
 
             <Button onClick={addToPackCart} className="w-full h-12 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-xl font-bold" disabled={!packData.product_name || packData.quantity <= 0}>
@@ -931,7 +980,10 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                   {packCart.map((item, idx) => (
                     <div key={idx} className="flex justify-between items-center bg-black/40 border border-white/5 p-3 rounded-xl">
                       <div className="truncate pr-2">
-                        <span className="font-bold text-white block">{item.name}</span>
+                        <span className="font-bold text-white block">
+                          {item.name} 
+                          {item.is_gift && <Badge className="ml-2 bg-rose-500/20 text-rose-300 border-rose-500/30">🎁 Gift</Badge>}
+                        </span>
                         <span className="text-xs text-purple-300 font-mono tracking-widest">{item.quantity} DEPL</span>
                       </div>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 rounded-lg" onClick={() => removeFromPackCart(idx)}>

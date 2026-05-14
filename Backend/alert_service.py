@@ -1,6 +1,7 @@
-from models import Alert
-from datetime import date, datetime
+from models import Alert, Product, ProductBatch
+from datetime import date, datetime, timedelta
 from typing import List
+from sqlmodel import Session, select
 
 alerts: List[Alert] = []
 alert_id = 1
@@ -48,24 +49,51 @@ def check_inventory_alerts(item):
 
     # EXPIRY
     if item.expiry_date:
-        days_left = (item.expiry_date - date.today()).days
+        if isinstance(item.expiry_date, str):
+            try:
+                exp_date = datetime.strptime(item.expiry_date, "%Y-%m-%d").date()
+            except:
+                return
+        else:
+            exp_date = item.expiry_date
+
+        days_left = (exp_date - date.today()).days
 
         if days_left < 0:
-            push_alert(
-                "expiry",
-                "Item Expired",
-                f"{item.name} has expired",
-                "critical",
-                item.id
-            )
+            # Check if this exact alert already exists
+            if not any(a.type == "expiry" and a.related_id == item.id and "expired" in a.message for a in alerts):
+                push_alert(
+                    "expiry",
+                    "Item Expired",
+                    f"{item.name} has expired",
+                    "critical",
+                    item.id
+                )
         elif days_left <= 7:
-            push_alert(
-                "expiry",
-                "Expiry Warning",
-                f"{item.name} expiring in {days_left} days",
-                "warning",
-                item.id
-            )
+            if not any(a.type == "expiry" and a.related_id == item.id and "expiring" in a.message for a in alerts):
+                push_alert(
+                    "expiry",
+                    "Expiry Warning",
+                    f"{item.name} expiring in {days_left} days",
+                    "warning",
+                    item.id
+                )
+
+def refresh_inventory_alerts(session: Session):
+    # Check all active batches for expiry and stock levels
+    batches = session.exec(select(ProductBatch).where(ProductBatch.quantity > 0)).all()
+    for b in batches:
+        product = session.get(Product, b.product_id)
+        if product and product.is_active:
+            # Create a temporary object for check_inventory_alerts
+            class ItemProxy:
+                def __init__(self, p, b):
+                    self.id = p.id
+                    self.name = p.name
+                    self.quantity = b.quantity
+                    self.expiry_date = b.expiry_date
+            
+            check_inventory_alerts(ItemProxy(product, b))
 
 
 # ---------------- SALE ALERT ---------------- #

@@ -21,12 +21,14 @@ import {
 
 interface SidebarProps {
   currentView: DashboardView;
-  setCurrentView: (view: DashboardView) => void;
+  setCurrentView: (view: DashboardView, tab?: string) => void;
   user: User;
   onLogout: () => void;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
   isAdmin: boolean;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
 interface NavItem {
@@ -64,6 +66,8 @@ export default function Sidebar({
   collapsed,
   setCollapsed,
   isAdmin,
+  isMobile,
+  onClose,
 }: SidebarProps) {
 
   // Safe display name logic
@@ -99,13 +103,15 @@ export default function Sidebar({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={isMobile ? onClose : () => setCollapsed(!collapsed)}
           className={cn(
             "text-slate-400 hover:text-white hover:bg-white/10 transition-colors",
             collapsed && "mx-auto"
           )}
         >
-          {collapsed ? (
+          {isMobile ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : collapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <ChevronLeft className="h-4 w-4" />

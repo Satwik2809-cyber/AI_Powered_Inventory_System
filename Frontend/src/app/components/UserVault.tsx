@@ -27,7 +27,8 @@ import {
   Banknote,
   Search,
   Sparkles,
-  Package
+  Package,
+  Gift
 } from "lucide-react";
 
 interface EventItem {
@@ -36,6 +37,7 @@ interface EventItem {
   rate: number;
   quantity_remaining: number;
   low_stock_alert: boolean;
+  is_gift: boolean;
 }
 
 export default function UserVault({ currentUser }: any) {
@@ -57,6 +59,7 @@ export default function UserVault({ currentUser }: any) {
   const [sellRate, setSellRate] = useState("");
   const [cart, setCart] = useState<any[]>([]);
   const [paymentMode, setPaymentMode] = useState("cash");
+  const [isGift, setIsGift] = useState(false);
 
   // State for Sales History Tab
   const [posTab, setPosTab] = useState<"cart" | "history">("cart");
@@ -186,12 +189,14 @@ export default function UserVault({ currentUser }: any) {
           category: item.category,
           rate: sellRate ? Number(sellRate) : item.rate,
           quantity: qty,
+          is_gift: isGift
         },
       ]);
 
       setSellName("");
       setSellQty("");
       setSellRate("");
+      setIsGift(false);
       setConfirmOpen(false);
 
       // Play sound effects based on stock
@@ -244,6 +249,7 @@ export default function UserVault({ currentUser }: any) {
             category: item.category,
             rate: item.rate,
             quantity: scanned.quantity,
+            is_gift: false
           }]);
 
           if (item.quantity_remaining <= 5) {
@@ -320,7 +326,7 @@ export default function UserVault({ currentUser }: any) {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+  const cartTotal = cart.reduce((sum, item) => sum + (item.is_gift ? 0 : item.rate * item.quantity), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-7xl mx-auto">
@@ -450,37 +456,94 @@ export default function UserVault({ currentUser }: any) {
               </div>
             </CardHeader>
             <CardContent className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-5">
                 {items.length === 0 ? (
-                  <div className="col-span-full py-12 text-center text-slate-500 italic">No inventory loaded for this event yet.</div>
+                  <div className="py-12 text-center text-slate-500 italic">No inventory loaded for this event yet.</div>
                 ) : (
-                  items.map((i, idx) => (
-                    <div
-                      key={idx}
-                      className="group flex flex-col p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer shadow-sm relative overflow-hidden"
-                      onClick={() => {
-                        setSellName(i.name);
-                        setSellRate(i.rate.toString());
-                        setSellQty("1");
-                      }}
-                    >
-                      {i.quantity_remaining <= 5 && (
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/20 rounded-bl-full -z-10 blur-md"></div>
-                      )}
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="font-bold text-white text-lg truncate pr-2" title={i.name}>{i.name}</p>
-                        <Badge className={`${i.quantity_remaining <= 5 ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-300'} border-0`}>
-                          Qty: {i.quantity_remaining}
-                        </Badge>
+                  <>
+                    {/* Regular Items */}
+                    {items.filter(i => !i.is_gift).length > 0 && (
+                      <div>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-3">Regular Items</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {items.filter(i => !i.is_gift).map((i, idx) => (
+                            <div
+                              key={idx}
+                              className="group flex flex-col p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-emerald-500/50 transition-all cursor-pointer shadow-sm relative overflow-hidden"
+                              onClick={() => {
+                                setSellName(i.name);
+                                setSellRate(i.rate.toString());
+                                setSellQty("1");
+                              }}
+                            >
+                              {i.quantity_remaining <= 5 && (
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/20 rounded-bl-full -z-10 blur-md"></div>
+                              )}
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="font-bold text-white text-lg truncate pr-2" title={i.name}>{i.name}</p>
+                                <Badge className={`${i.quantity_remaining <= 5 ? 'bg-rose-500 text-white' : 'bg-white/10 text-slate-300'} border-0`}>
+                                  Qty: {i.quantity_remaining}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between items-end mt-auto pt-2">
+                                <Badge variant="outline" className="text-xs text-emerald-200 border-emerald-500/30 bg-emerald-500/10 uppercase tracking-wider">
+                                  {i.category}
+                                </Badge>
+                                <p className="text-xl font-bold text-emerald-400">₹{i.rate}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="flex justify-between items-end mt-auto pt-2">
-                        <Badge variant="outline" className="text-xs text-emerald-200 border-emerald-500/30 bg-emerald-500/10 uppercase tracking-wider">
-                          {i.category}
-                        </Badge>
-                        <p className="text-xl font-bold text-emerald-400">₹{i.rate}</p>
+                    )}
+
+                    {/* Gift Items */}
+                    {items.filter(i => i.is_gift).length > 0 && (
+                      <div>
+                        <p className="text-xs text-rose-400 uppercase tracking-widest font-bold mb-3 flex items-center gap-1">
+                          <Gift className="w-3 h-3" /> Event Gift Pack — Click to Distribute
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {items.filter(i => i.is_gift).map((i, idx) => (
+                            <div
+                              key={idx}
+                              className="group flex flex-col p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl hover:bg-rose-500/10 hover:border-rose-500/50 transition-all cursor-pointer shadow-sm relative overflow-hidden"
+                              onClick={() => {
+                                // Auto-add gift item to cart immediately at ₹0
+                                if (i.quantity_remaining <= 0) {
+                                  toast.error("No gift stock remaining");
+                                  return;
+                                }
+                                setCart(prev => [...prev, {
+                                  name: i.name,
+                                  category: i.category,
+                                  rate: 0,
+                                  quantity: 1,
+                                  is_gift: true
+                                }]);
+                                toast.success(`🎁 ${i.name} added as Gift`);
+                              }}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="font-bold text-white text-lg truncate pr-2 flex items-center gap-1" title={i.name}>
+                                  🎁 {i.name}
+                                </p>
+                                <Badge className="bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                  Qty: {i.quantity_remaining}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between items-end mt-auto pt-2">
+                                <Badge variant="outline" className="text-xs text-rose-200 border-rose-500/30 bg-rose-500/10 uppercase tracking-wider">
+                                  {i.category}
+                                </Badge>
+                                <p className="text-sm font-bold text-rose-400">FREE Gift</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
@@ -585,6 +648,11 @@ export default function UserVault({ currentUser }: any) {
                           }}
                         />
                       </div>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 rounded-md hover:bg-white/10 transition-colors">
+                        <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
+                        <span className="text-white text-sm font-bold">🎁 Gift</span>
+                      </label>
 
                       <Button onClick={addToCart} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg h-10 px-6 font-bold flex-none">
                         Add
@@ -603,11 +671,11 @@ export default function UserVault({ currentUser }: any) {
                       cart.map((c, i) => (
                         <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl hover:bg-white/10 transition-colors">
                           <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-bold text-white truncate text-sm">{c.name}</p>
+                            <p className="font-bold text-white truncate text-sm">{c.name} {c.is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0">🎁 Gift</Badge>}</p>
                             <p className="text-xs text-slate-400">Qty: {c.quantity} × ₹{c.rate}</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="font-bold text-emerald-400">₹{c.quantity * c.rate}</span>
+                            <span className={`font-bold ${c.is_gift ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>₹{c.quantity * c.rate}</span>
                             <Button
                               size="icon"
                               variant="ghost"

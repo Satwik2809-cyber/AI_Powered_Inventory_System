@@ -118,10 +118,16 @@ export default function Reports() {
     if (reportTab === "daily") {
       async function loadDaily() {
         try {
-          const data = await apiGet("/reports/daily");
+          const data = await apiGet("/reports/daily/breakdown");
           setDailySales(data);
         } catch {
-          toast.error("Failed to load daily sales");
+          // fallback to simple list
+          try {
+            const data = await apiGet("/reports/daily");
+            setDailySales(data);
+          } catch {
+            toast.error("Failed to load daily sales");
+          }
         }
       }
       loadDaily();
@@ -216,8 +222,7 @@ export default function Reports() {
     }
   }
 
-    toast.success("Report Exported to CSV");
-  }
+
 
   async function exportToExcel(twoSheets: boolean = false) {
     try {
@@ -328,7 +333,7 @@ export default function Reports() {
       )}
 
       {/* STATS */}
-      <div className="grid md:grid-cols-4 gap-4 flex-shrink-0">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
         <Stat title="Total Revenue" value={`₹${summary?.total_revenue || 0}`} icon={<DollarSign />} />
         <Stat title="Today's Revenue" value={`₹${summary?.today_revenue || 0}`} icon={<TrendingUp />} />
         <Stat title="Events" value={summary?.events_count || 0} icon={<Calendar />} />
@@ -337,40 +342,133 @@ export default function Reports() {
 
       {/* TABS */}
       <Tabs value={reportTab} onValueChange={(v: any) => setReportTab(v)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="grid grid-cols-4 flex-shrink-0 bg-slate-900/50 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl h-14 w-full">
-          <TabsTrigger value="daily" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all">Daily Sell</TabsTrigger>
-          <TabsTrigger value="events" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all">Events</TabsTrigger>
-          <TabsTrigger value="monthly" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all">History</TabsTrigger>
+        <div className="overflow-x-auto pb-2 custom-scrollbar flex-shrink-0">
+          <TabsList className="inline-flex min-w-full sm:grid sm:grid-cols-4 bg-slate-900/50 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl h-14 w-full">
+            <TabsTrigger value="daily" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all whitespace-nowrap px-4">Daily Sell</TabsTrigger>
+            <TabsTrigger value="events" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all whitespace-nowrap px-4">Events</TabsTrigger>
+            <TabsTrigger value="monthly" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-600 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all whitespace-nowrap px-4">History</TabsTrigger>
 
-          {monthlyStatus === "counting" && (
-            <TabsTrigger value="counting" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all text-amber-500 border border-amber-500/30">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Current Draft
-            </TabsTrigger>
-          )}
-        </TabsList>
+            {monthlyStatus === "counting" && (
+              <TabsTrigger value="counting" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl transition-all text-amber-500 border border-amber-500/30 whitespace-nowrap px-4">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Current Draft
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         {/* DAILY */}
         <TabsContent value="daily" className="flex-1 min-h-0 overflow-hidden">
-          <SimpleList
-            title="Daily Sales"
-            empty="No daily sales"
-            rows={dailySales}
-          />
+          <Card className="h-full flex flex-col bg-slate-900/80 border border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden mt-6">
+            <CardHeader className="flex-shrink-0 bg-white/5 border-b border-white/10">
+              <CardTitle className="text-white font-bold tracking-tight text-xl">All Daily Sales — By User</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+              {dailySales.length === 0 ? (
+                <p className="text-center text-slate-500 py-12 italic">No daily sales recorded today</p>
+              ) : Array.isArray(dailySales) && dailySales[0]?.user ? (
+                // Rich breakdown: [{user, total_user_sales, products:[{name,qty,amount}]}]
+                dailySales.map((userStats: any, i: number) => (
+                  <div key={i} className="bg-black/30 border border-white/10 rounded-2xl overflow-hidden">
+                    <div className="flex justify-between items-center p-4 bg-white/5 border-b border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 font-bold text-sm">
+                          {(userStats.user || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <p className="font-bold text-white text-lg">{userStats.user}</p>
+                      </div>
+                      <Badge className="bg-indigo-600 text-white font-bold">₹{(userStats.total_user_sales || 0).toFixed(2)}</Badge>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b border-white/5">
+                          <TableHead className="text-slate-400 text-xs">Product</TableHead>
+                          <TableHead className="text-slate-400 text-xs text-right">Qty</TableHead>
+                          <TableHead className="text-slate-400 text-xs text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(userStats.products || []).map((p: any, j: number) => (
+                          <TableRow key={j} className="hover:bg-white/5 border-b border-white/5">
+                            <TableCell className="py-2 text-sm text-slate-300">{p.name}</TableCell>
+                            <TableCell className="py-2 text-sm text-slate-400 text-right">{p.qty}</TableCell>
+                            <TableCell className="py-2 text-sm font-semibold text-emerald-400 text-right">₹{(p.amount || 0).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))
+              ) : (
+                // Fallback: simple list
+                dailySales.map((r: any, i: number) => (
+                  <div key={i} className="flex justify-between items-center bg-black/30 border border-white/5 hover:bg-white/5 transition-colors p-4 rounded-2xl">
+                    <div>
+                      <p className="font-bold text-white text-lg">{r.title}</p>
+                      <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">{r.subtitle}</p>
+                    </div>
+                    <p className="font-black text-xl text-emerald-400">{r.value}</p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* EVENTS */}
         <TabsContent value="events" className="flex-1 min-h-0 overflow-hidden">
-          {/* Map event structure to SimpleList row structure */}
-          <SimpleList
-            title="Event Sales"
-            empty="No event sales"
-            rows={eventsReport.map(e => ({
-              title: e.name,
-              subtitle: `${e.count} transactions • ${e.status}`,
-              value: `₹${e.revenue}`
-            }))}
-          />
+          <Card className="h-full flex flex-col bg-slate-900/80 border border-white/10 backdrop-blur-xl rounded-3xl overflow-hidden mt-6">
+            <CardHeader className="flex-shrink-0 bg-white/5 border-b border-white/10">
+              <CardTitle className="text-white font-bold tracking-tight text-xl">All Event Sales — By Event & User</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+              {eventsReport.length === 0 ? (
+                <p className="text-center text-slate-500 py-12 italic">No events found</p>
+              ) : (
+                eventsReport.map((e: any, i: number) => (
+                  <div key={i} className="bg-black/30 border border-white/10 rounded-2xl overflow-hidden">
+                    {/* Event Header */}
+                    <div className="flex justify-between items-center p-4 bg-white/5 border-b border-white/10">
+                      <div>
+                        <p className="font-bold text-white text-lg">{e.name}</p>
+                        <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">{e.count} transactions • {e.status} • {e.mode}</p>
+                      </div>
+                      <Badge className="bg-purple-600 text-white font-bold">₹{(e.revenue || 0).toFixed(2)}</Badge>
+                    </div>
+                    {/* Per-user breakdown if available */}
+                    {e.user_breakdown && e.user_breakdown.length > 0 ? (
+                      <div className="divide-y divide-white/5">
+                        {e.user_breakdown.map((ub: any, j: number) => (
+                          <div key={j} className="p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="h-7 w-7 rounded-full bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 font-bold text-xs">
+                                {(ub.user || "?").charAt(0).toUpperCase()}
+                              </div>
+                              <p className="font-semibold text-slate-200 text-sm">{ub.user}</p>
+                              <Badge variant="outline" className="ml-auto text-xs border-purple-400/30 text-purple-300">₹{(ub.total || 0).toFixed(2)}</Badge>
+                            </div>
+                            <Table>
+                              <TableBody>
+                                {(ub.products || []).map((p: any, k: number) => (
+                                  <TableRow key={k} className="hover:bg-white/5 border-b border-white/5">
+                                    <TableCell className="py-1.5 text-sm text-slate-300">{p.name}</TableCell>
+                                    <TableCell className="py-1.5 text-sm text-slate-400 text-right">{p.qty}</TableCell>
+                                    <TableCell className="py-1.5 text-sm font-semibold text-emerald-400 text-right">₹{(p.amount || 0).toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="p-4 text-sm text-slate-500 italic">No item-level detail available</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* MONTHLY HISTORY */}
@@ -476,6 +574,37 @@ export default function Reports() {
                                     </TableBody>
                                   </Table>
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* HISTORY EVENT BREAKDOWN */}
+                      {monthlyReport.breakdown && monthlyReport.breakdown.event_breakdown && monthlyReport.breakdown.event_breakdown.length > 0 && (
+                        <div className="flex-1 min-h-[0] overflow-y-auto p-6 custom-scrollbar border-t border-gray-100">
+                          <h3 className="font-semibold text-gray-700 mb-4">Event Sales — By User & Event</h3>
+                          <div className="space-y-4">
+                            {monthlyReport.breakdown.event_breakdown.map((eb: any, i: number) => (
+                              <div key={i} className="bg-white border border-gray-100 rounded-lg overflow-hidden shadow-sm">
+                                <div className="flex justify-between items-center p-3 bg-purple-50/50 border-b border-purple-100">
+                                  <div>
+                                    <p className="font-bold text-gray-700">{eb.user}</p>
+                                    <p className="text-xs text-purple-600 font-medium">{eb.event}</p>
+                                  </div>
+                                  <Badge className="bg-purple-600">₹{(eb.total_user_event_sales || 0).toFixed(2)}</Badge>
+                                </div>
+                                <Table>
+                                  <TableBody>
+                                    {(eb.products || []).map((p: any, j: number) => (
+                                      <TableRow key={j} className="hover:bg-transparent border-b-gray-50">
+                                        <TableCell className="py-2 text-sm text-gray-600 font-medium">{p.name}</TableCell>
+                                        <TableCell className="py-2 text-sm text-gray-600 text-right">{p.qty}</TableCell>
+                                        <TableCell className="py-2 text-sm font-semibold text-purple-700 text-right">₹{(p.amount || 0).toFixed(2)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
                               </div>
                             ))}
                           </div>
@@ -649,6 +778,44 @@ export default function Reports() {
                       ) : (
                         <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-100">
                           Error: Old draft format. Please cancel and restart count.
+                        </div>
+                      )}
+
+                      {/* DRAFT EVENT BREAKDOWN */}
+                      {draftReport.breakdown && draftReport.breakdown.event_breakdown && draftReport.breakdown.event_breakdown.length > 0 && (
+                        <div className="mt-8 border-t border-gray-100 pt-6">
+                          <h3 className="font-semibold text-gray-700 mb-4">Event Sales — By User & Event</h3>
+                          <div className="space-y-4">
+                            {draftReport.breakdown.event_breakdown.map((eb: any, i: number) => (
+                              <div key={i} className="bg-white/80 border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-center p-3 bg-purple-50/80 border-b border-purple-100">
+                                  <div>
+                                    <p className="font-bold text-gray-800">{eb.user}</p>
+                                    <p className="text-xs text-purple-600 font-medium">{eb.event}</p>
+                                  </div>
+                                  <Badge className="bg-purple-600">₹{(eb.total_user_event_sales || 0).toFixed(2)}</Badge>
+                                </div>
+                                <Table>
+                                  <TableHeader className="bg-gray-50/50">
+                                    <TableRow className="hover:bg-transparent">
+                                      <TableHead className="h-8 text-xs font-semibold">Product</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Qty</TableHead>
+                                      <TableHead className="h-8 text-xs font-semibold text-right">Amount</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {(eb.products || []).map((p: any, j: number) => (
+                                      <TableRow key={j} className="hover:bg-transparent border-b-gray-50">
+                                        <TableCell className="py-2 text-sm text-gray-600 font-medium">{p.name}</TableCell>
+                                        <TableCell className="py-2 text-sm text-gray-600 text-right">{p.qty}</TableCell>
+                                        <TableCell className="py-2 text-sm font-semibold text-purple-700 text-right">₹{(p.amount || 0).toFixed(2)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 

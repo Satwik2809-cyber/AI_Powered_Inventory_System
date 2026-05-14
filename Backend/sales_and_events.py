@@ -73,7 +73,7 @@ def daily_sale_logic(
                     detail=f"Insufficient stock for {item.name}. Missing: {remaining_qty}"
                 )
 
-            item_total = item.quantity * item.rate
+            item_total = 0 if getattr(item, "is_gift", False) else (item.quantity * item.rate)
             total_amount += item_total
             total_quantity += item.quantity
             
@@ -82,7 +82,8 @@ def daily_sale_logic(
                     product_id=product.id,
                     quantity=item.quantity,
                     rate=item.rate,
-                    total_price=item_total
+                    total_price=item_total,
+                    is_gift=getattr(item, "is_gift", False)
                 )
             )
 
@@ -241,7 +242,7 @@ def pack_items_logic(session:Session,
         ).first()
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        if event.status not in ["created", "active"]:
+        if event.status not in ["created", "active", "packing"]:
             raise HTTPException(
                 status_code=400,
                 detail="Cannot pack items for this event state"
@@ -284,10 +285,12 @@ def pack_items_logic(session:Session,
                 )
             
             # 4️⃣ Add / Update Event Stock
+            is_gift = item.get("is_gift", False)
             event_stock = session.exec(
                 select(EventStock).where(
                     EventStock.event_id == event.id,
-                    EventStock.product_id == product.id
+                    EventStock.product_id == product.id,
+                    EventStock.is_gift == is_gift
                 )
             ).first()
             if event_stock:
@@ -298,17 +301,19 @@ def pack_items_logic(session:Session,
                     event_id=event.id,
                     product_id=product.id,
                     quantity_taken=required_qty,
-                    quantity_remaining=required_qty
+                    quantity_remaining=required_qty,
+                    is_gift=is_gift
                 )
                 session.add(event_stock)
                 
             # 5️⃣ Log Packing History
+            action_name = "restocked" if event.status == "active" else "packed"
             history_entry = EventStockHistory(
                 event_id=event.id,
                 product_id=product.id,
                 user_id=user_id,
                 quantity=required_qty,
-                action="packed"
+                action=action_name
             )
             session.add(history_entry)
 
@@ -418,7 +423,7 @@ def event_sell_logic(session:Session, req: EventSellRequest):
             # 5️⃣ Deduct event stock
             event_stock.quantity_remaining -= item.quantity
 
-            item_total = item.quantity * item.rate
+            item_total = 0 if getattr(item, "is_gift", False) else (item.quantity * item.rate)
             total_amount += item_total
 
             sale_items.append(
@@ -426,7 +431,8 @@ def event_sell_logic(session:Session, req: EventSellRequest):
                     product_id=product.id,
                     quantity=item.quantity,
                     rate=item.rate,
-                    total_price=item_total
+                    total_price=item_total,
+                    is_gift=getattr(item, "is_gift", False)
                 )
             )
 
@@ -655,7 +661,8 @@ def view_remaining_event_stock(event_name: str):
                 "category": product.category,
                 "rate": product.rate,
                 "quantity_taken": stock.quantity_taken,
-                "quantity_remaining": stock.quantity_remaining
+                "quantity_remaining": stock.quantity_remaining,
+                "is_gift": stock.is_gift
             })
             
         return {
@@ -1106,10 +1113,10 @@ def return_event_stock_to_main(event_name: str):
         ).first()
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        if event.status != "closed_pending_return":
+        if event.status == "completed":
             raise HTTPException(
                 status_code=400,
-                detail="Event must be closed before returning stock"
+                detail="Event is already completed and stock has been returned."
             )
         try:
             event_stocks = session.exec(
@@ -1316,6 +1323,15 @@ def get_user_event_stock(event_name: str, user_id: int):
                     EventStock.quantity_remaining > 0
                 )
             ).all()
+            for s, p in stocks:
+                response.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "category": p.category,
+                    "rate": p.rate,
+                    "quantity_remaining": s.quantity_remaining,
+                    "is_gift": s.is_gift
+                })
         # 🔒 CASE 2: AREA-WISE MODE (DEFAULT)
         else:
             user_areas = session.exec(
@@ -1333,15 +1349,15 @@ def get_user_event_stock(event_name: str, user_id: int):
                     EventStock.quantity_remaining > 0
                 )
             ).all()
-        # 3️⃣ Format response
-        for event_stock, product in stocks:
-            response.append({
-                "name": product.name,
-                "category": product.category,
-                "rate": product.rate,
-                "quantity_remaining": event_stock.quantity_remaining,
-                "low_stock_alert": event_stock.quantity_remaining <= 5
-            })
+            for s, p in stocks:
+                response.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "category": p.category,
+                    "rate": p.rate,
+                    "quantity_remaining": s.quantity_remaining,
+                    "is_gift": s.is_gift
+                })
         return {
             "event": event.name,
             "user_id": user_id,

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 # USER (LOGIN ONLY)
 # -------------------------
 class User(SQLModel, table=True):
-    __tablename__ = "users"
+    __tablename__ = "users"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
@@ -21,7 +21,7 @@ class User(SQLModel, table=True):
 # PRODUCT (MASTER)
 # -------------------------
 class Product(SQLModel, table=True):
-    __tablename__ = "products"
+    __tablename__ = "products"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -36,13 +36,13 @@ class Product(SQLModel, table=True):
 # PRODUCT BATCHES (EXPIRY-BASED STOCK)
 # -------------------------
 class ProductBatch(SQLModel, table=True):
-    __tablename__ = "product_batches"
+    __tablename__ = "product_batches"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     product_id: int = Field(foreign_key="products.id")
     quantity: int
-    manufacturing_date: Optional[date] = None
-    expiry_date: Optional[date] = None
+    manufacturing_date: Optional[date] = Field(default=None, nullable=True)
+    expiry_date: Optional[date] = Field(default=None, nullable=True)
     last_restocked_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -50,7 +50,7 @@ class ProductBatch(SQLModel, table=True):
 # EVENT (KATHA / SUNDAY / ETC)
 # -------------------------
 class Event(SQLModel, table=True):
-    __tablename__ = "events"
+    __tablename__ = "events"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -74,7 +74,7 @@ class EventCreateRequest(BaseModel):
 # EVENT ITEMS (STOCK MOVED FROM MAIN VAULT)
 # -------------------------
 class EventItem(SQLModel, table=True):
-    __tablename__ = "event_items"
+    __tablename__ = "event_items"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     event_id: int = Field(foreign_key="events.id")
@@ -88,7 +88,7 @@ class EventItem(SQLModel, table=True):
 # EVENT DAYS (DAY 1, DAY 2...)
 # -------------------------
 class EventDay(SQLModel, table=True):
-    __tablename__ = "event_days"
+    __tablename__ = "event_days"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     event_id: int = Field(foreign_key="events.id")
@@ -102,6 +102,7 @@ class EventStock(SQLModel, table=True):
     product_id: int = Field(foreign_key="products.id")
     quantity_taken: int
     quantity_remaining: int
+    is_gift: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class EventStockHistory(SQLModel, table=True):
@@ -134,13 +135,14 @@ class EventSaleItem(SQLModel, table=True):
     quantity: int
     rate: float
     total_price: float
+    is_gift: bool = Field(default=False)
 
 
 # -------------------------
 # SALE (ONE TRANSACTION)
 # -------------------------
 class Sale(SQLModel, table=True):
-    __tablename__ = "sales"
+    __tablename__ = "sales"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     sale_type: str  # "daily" or "event"
@@ -158,7 +160,7 @@ class Sale(SQLModel, table=True):
 # SALE ITEMS (MULTI-PRODUCT SALE)
 # -------------------------
 class SaleItem(SQLModel, table=True):
-    __tablename__ = "sale_items"
+    __tablename__ = "sale_items"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     sale_id: int = Field(foreign_key="sales.id")
@@ -166,13 +168,14 @@ class SaleItem(SQLModel, table=True):
     quantity: int
     rate: float
     total_price: float
+    is_gift: bool = Field(default=False)
 
 
 # -------------------------
 # MONTHLY CLOSURE (ACCOUNTING LOCK)
 # -------------------------
 class MonthlyClosure(SQLModel, table=True):
-    __tablename__ = "monthly_closures"
+    __tablename__ = "monthly_closures"  # type: ignore
 
     id: Optional[int] = Field(default=None, primary_key=True)
     month: int
@@ -180,7 +183,7 @@ class MonthlyClosure(SQLModel, table=True):
     closed_at: datetime = Field(default_factory=datetime.utcnow)
 
 class MonthlyCount(SQLModel, table=True):
-    __tablename__ = "monthly_count"
+    __tablename__ = "monthly_count"  # type: ignore
     id: Optional[int] = Field(default=None, primary_key=True)
     start_date: datetime
     end_date: Optional[datetime] = None
@@ -194,7 +197,7 @@ class MonthlyCount(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserArea(SQLModel, table=True):
-    __tablename__ = "user_areas"
+    __tablename__ = "user_areas"  # type: ignore
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     category: str
@@ -204,8 +207,8 @@ class StockHistory(SQLModel, table=True):
     product_id: int = Field(index=True)
     quantity: int
 
-    manufacturing_date: Optional[str] = None
-    expiry_date: Optional[str] = None
+    manufacturing_date: Optional[str] = Field(default=None, nullable=True)
+    expiry_date: Optional[str] = Field(default=None, nullable=True)
 
     restocked_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -219,6 +222,17 @@ class Alert(BaseModel):
     related_id: Optional[int]  # itemId / eventId / saleId
     created_at: datetime
     seen: bool = False
+
+# -------------------------
+# LOG BOOK
+# -------------------------
+class LogBook(SQLModel, table=True):
+    __tablename__ = "log_book"  # type: ignore
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    content: str
+    created_by: str  # username of the creator
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # -------------------------
 # REQUEST MODELS
@@ -251,6 +265,7 @@ class DailySaleItemRequest(BaseModel):
     category: str
     rate: float
     quantity: int
+    is_gift: bool = False
 
 class DailySaleRequest(BaseModel):
     user_id: int
@@ -263,6 +278,7 @@ class EventSellItemRequest(BaseModel):
     category: str
     rate: float
     quantity: int
+    is_gift: bool = False
 
 class EventSellRequest(BaseModel):
     event_name: str

@@ -1,5 +1,7 @@
+from fastapi import Form
 from fastapi import FastAPI, APIRouter, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 import shutil, os
 from sqlmodel import Session, select
@@ -13,13 +15,23 @@ from auth_and_users import router as auth_router
 from inventory import router as inventory_router
 from sales_and_events import router as sales_router
 from routers.reports import router as reports_router
+from routers.logbook import router as logbook_router
 from developer import router as developer_router
 from image_match import match_product_image, decide_image_match
 from ai import AICommand, handle_ai_command
 from alert_service import get_alerts, mark_alert_seen
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize database
+    from database import create_db_and_tables
+    create_db_and_tables()
+    yield
+    # Shutdown logic (if any) can go here
+
 app = FastAPI(
     title="AI Powered Inventory System",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 import os
@@ -28,10 +40,6 @@ if not os.path.exists("product_images"):
 
 app.mount("/product_images", StaticFiles(directory="product_images"), name="product_images")
 
-@app.on_event("startup")
-def on_startup():
-    from database import create_db_and_tables
-    create_db_and_tables()
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +55,7 @@ app.include_router(inventory_router)
 app.include_router(sales_router)
 app.include_router(user_dashboard_router)
 app.include_router(reports_router)
+app.include_router(logbook_router)
 app.include_router(developer_router)
 # AI Router
 ai_router = APIRouter(tags=["AI Assistant"])
@@ -55,7 +64,7 @@ ai_router = APIRouter(tags=["AI Assistant"])
 def ai_command(cmd: AICommand):
     return handle_ai_command(cmd)
 
-from fastapi import FastAPI, APIRouter, UploadFile, File, Depends, HTTPException, Form
+
 
 @ai_router.post("/ai/image-match")
 def image_match_api(
@@ -75,7 +84,9 @@ app.include_router(ai_router)
 alert_router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
 @alert_router.get("")
-def fetch_alerts():
+def fetch_alerts(db: Session = Depends(get_db)):
+    from alert_service import refresh_inventory_alerts
+    refresh_inventory_alerts(db)
     return get_alerts()
 
 @alert_router.post("/{alert_id}/seen")

@@ -38,7 +38,8 @@ def create_db_and_tables():
         SaleItem,
         MonthlyClosure,
         MonthlyCount,
-        UserArea
+        UserArea,
+        LogBook
     )
     SQLModel.metadata.create_all(engine)
 
