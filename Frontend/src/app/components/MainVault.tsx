@@ -197,21 +197,22 @@ export default function MainVault({
   }
 
   /* ---------------- EXCEL IMPORT / EXPORT ---------------- */
-  function openFilePicker() {
+  const [importMode, setImportMode] = useState("registry");
+
+  function openFilePicker(mode: string) {
+    setImportMode(mode);
     fileRef.current?.click();
   }
 
   async function handleImportExcel(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      await apiPostFile(`/products/import-excel`, file);
+      await apiPostFile(`/products/import-excel`, file, { mode: importMode });
       toast.success("Excel imported successfully");
       loadProducts();
     } catch {
       toast.error("Excel import failed");
     }
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleExportExcel() {
@@ -887,13 +888,18 @@ export default function MainVault({
                 <p className="text-slate-400">Import or export your entire master inventory catalog seamlessly.</p>
               </div>
 
-              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files && handleImportExcel(e.target.files[0])} />
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files && e.target.files.length > 0 && handleImportExcel(e.target.files[0])} />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-black/20 p-8 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer group" onClick={openFilePicker}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-black/20 p-8 rounded-2xl border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer group" onClick={() => openFilePicker("registry")}>
                   <Upload className="h-12 w-12 text-purple-400 mx-auto mb-4 group-hover:-translate-y-2 transition-transform" />
-                  <h3 className="text-xl font-bold text-white mb-2">Import Inventory</h3>
-                  <p className="text-sm text-slate-400">Upload a spreadsheet to bulk-create or update items.</p>
+                  <h3 className="text-xl font-bold text-white mb-2">Import Item Registry</h3>
+                  <p className="text-sm text-slate-400">Setup catalog with Name, Category, Rate.</p>
+                </div>
+                <div className="bg-black/20 p-8 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer group" onClick={() => openFilePicker("restock")}>
+                  <Package className="h-12 w-12 text-blue-400 mx-auto mb-4 group-hover:-translate-y-2 transition-transform" />
+                  <h3 className="text-xl font-bold text-white mb-2">Import Restock</h3>
+                  <p className="text-sm text-slate-400">Add inventory volume with Name, Quantity.</p>
                 </div>
                 <div className="bg-black/20 p-8 rounded-2xl border border-white/5 hover:border-pink-500/30 transition-all cursor-pointer group" onClick={handleExportExcel}>
                   <Download className="h-12 w-12 text-pink-400 mx-auto mb-4 group-hover:translate-y-2 transition-transform" />

@@ -109,6 +109,10 @@ export default function CameraScan({ context, eventName, onAutoMatch, onConfirmM
         // Show error but leave camera open to try again
         toast.error(res.message);
       }
+      
+      if (res.status === "error") {
+        toast.error(res.message || "Failed to find a matching product");
+      }
     } catch {
       toast.error("Camera scan failed. Backend may be unreachable.");
     } finally {

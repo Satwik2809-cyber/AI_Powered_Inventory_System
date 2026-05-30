@@ -91,6 +91,30 @@ export async function apiPut(url: string, body: any) {
 
   return res.json();
 }
+
+export async function apiPatch(url: string, body: any) {
+  const res = await fetch(`${BASE_URL}${url}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let errorData = null;
+    try {
+      errorData = await res.json();
+    } catch (e) {}
+
+    const err = new Error(errorData?.detail || "API PATCH failed");
+    (err as any).response = { data: errorData };
+    throw err;
+  }
+
+  return res.json();
+}
 export async function apiDelete(path: string) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "DELETE",

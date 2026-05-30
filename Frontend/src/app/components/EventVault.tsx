@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, apiPut } from "../api";
+import { apiGet, apiPost, apiPut, apiPatch } from "../api";
 import { toast } from "sonner";
 import AISpeech from "./AISpeech";
 import CameraScan from "./CameraScan";
+import Papa from "papaparse";
+import * as xlsx from "xlsx";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -15,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Checkbox } from "./ui/checkbox";
 
 import {
   Select,
@@ -43,7 +46,8 @@ import {
   Download,
   FileText,
   X,
-  Gift
+  Gift,
+  Edit2
 } from "lucide-react";
 
 /* ---------------- TYPES (MATCH BACKEND) ---------------- */
@@ -88,6 +92,18 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
   const [editOpen, setEditOpen] = useState(false);
   const [editData, setEditData] = useState({ name: "", mode: "single-day", start_date: "", days: 2 });
   const [viewLedgersOpen, setViewLedgersOpen] = useState(false);
+
+  // CSV/Excel Import state
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
+  const [importedItems, setImportedItems] = useState<any[]>([]);
+
+  // Edit quantity state
+  const [editingStockId, setEditingStockId] = useState<number | null>(null);
+  const [editStockQuantity, setEditStockQuantity] = useState<number>(0);
+
+  // Cross-check state
+  const [crossCheckOpen, setCrossCheckOpen] = useState(false);
+  const [crossCheckCategory, setCrossCheckCategory] = useState("All");
 
   /* ---------------- LOAD EVENTS ---------------- */
   useEffect(() => { loadEvents(); }, []);
@@ -146,6 +162,20 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
       const data = await apiGet(`/events/remaining-stock?event_name=${encodeURIComponent(eventName)}`);
       setRemainingStock(data.remaining_stock || []);
     } catch (err) { console.error("Failed to load remaining stock"); }
+  }
+
+  async function updateStockItem(product_id: number, payload: any) {
+    if (!openedEvent) return;
+    try {
+      await apiPatch(`/events/${encodeURIComponent(openedEvent.name)}/items/${product_id}`, payload);
+      toast.success("Stock updated");
+      loadRemainingStock(openedEvent.name);
+      if (editingStockId === product_id) {
+        setEditingStockId(null);
+      }
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || "Update failed");
+    }
   }
 
   async function loadHistory() {
@@ -217,6 +247,76 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
       toast.error(err.response?.data?.detail || "Packing failed");
     }
   }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    
+    if (ext === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          processImportData(results.data);
+        }
+      });
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const bstr = evt.target?.result;
+        const wb = xlsx.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = xlsx.utils.sheet_to_json(ws);
+        processImportData(data);
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      toast.error("Unsupported file type. Please upload CSV or Excel.");
+    }
+    // reset input
+    e.target.value = '';
+  };
+
+  const processImportData = (data: any[]) => {
+    let newCart = [...packCart];
+    let addedCount = 0;
+    
+    data.forEach((row) => {
+      // Find possible keys for name and quantity
+      const nameKey = Object.keys(row).find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('item') || k.toLowerCase() === 'product');
+      const qtyKey = Object.keys(row).find(k => k.toLowerCase().includes('qty') || k.toLowerCase().includes('quantity'));
+      
+      if (nameKey && qtyKey) {
+        const itemName = String(row[nameKey]).trim();
+        const itemQty = Number(row[qtyKey]);
+        
+        if (itemName && itemQty > 0) {
+          let matchedProducts = products.filter(p => p.name.toLowerCase() === itemName.toLowerCase() || p.name.toLowerCase().includes(itemName.toLowerCase()));
+          if (matchedProducts.length > 0) {
+            const p = matchedProducts[0];
+            if (itemQty <= p.quantity) {
+              newCart.push({ name: p.name, category: p.category, rate: p.rate, quantity: itemQty, is_gift: false });
+              addedCount++;
+            } else {
+              toast.error(`Not enough stock for ${itemName} (Only ${p.quantity} available)`);
+            }
+          } else {
+             toast.error(`Item ${itemName} not found in inventory`);
+          }
+        }
+      }
+    });
+    
+    if (addedCount > 0) {
+       setPackCart(newCart);
+       toast.success(`${addedCount} items added from file`);
+    } else {
+       toast.error("No valid items found to import. Ensure columns 'Name' and 'Quantity' exist.");
+    }
+  };
 
   async function changeStatus(status: string) {
     if (!openedEvent) return;
@@ -524,9 +624,14 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
               </Button>
 
               {!isCompleted && (
-                <Button onClick={() => setPackOpen(true)} className="bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-xl px-6 h-12">
-                  <Package className="w-4 h-4 mr-2" /> Inject Stock
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => setCrossCheckOpen(true)} className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-6 h-12 shadow-lg shadow-purple-500/20 font-bold">
+                    <CheckCircle className="w-4 h-4 mr-2" /> Cross-Check Stock
+                  </Button>
+                  <Button onClick={() => setPackOpen(true)} className="bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-xl px-6 h-12">
+                    <Package className="w-4 h-4 mr-2" /> Inject Stock
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -555,7 +660,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                     {remainingStock.filter((s: any) => !s.is_gift).length > 0 && (
                       <div>
                         <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-2 px-1">Regular Stock</p>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {remainingStock.filter((s: any) => !s.is_gift).map((s: any, idx: number) => (
                             <div key={idx} className="bg-black/20 border border-white/5 p-4 rounded-2xl flex justify-between items-center group hover:bg-white/5 transition-colors">
                               <div>
@@ -564,7 +669,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                               </div>
                               <div className="text-right">
                                 <p className="text-2xl font-black text-emerald-400">{s.quantity_remaining}</p>
-                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Avail</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Avail / {s.quantity_taken} Pckd</p>
                               </div>
                             </div>
                           ))}
@@ -578,7 +683,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                         <p className="text-xs text-rose-400 uppercase tracking-widest font-bold mb-2 px-1 flex items-center gap-1">
                           <Gift className="w-3 h-3" /> Gift Pack
                         </p>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {remainingStock.filter((s: any) => s.is_gift).map((s: any, idx: number) => (
                             <div key={idx} className="bg-rose-500/5 border border-rose-500/20 p-4 rounded-2xl flex justify-between items-center group hover:bg-rose-500/10 transition-colors">
                               <div>
@@ -589,7 +694,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
                               </div>
                               <div className="text-right">
                                 <p className="text-2xl font-black text-rose-400">{s.quantity_remaining}</p>
-                                <p className="text-[10px] text-rose-500/70 uppercase tracking-widest mt-1">Avail</p>
+                                <p className="text-[10px] text-rose-500/70 uppercase tracking-widest mt-1">Avail / {s.quantity_taken} Pckd</p>
                               </div>
                             </div>
                           ))}
@@ -940,6 +1045,25 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
 
             <div className="flex gap-2 mt-2">
               <div className="flex-1">
+                <Button 
+                  variant="outline" 
+                  className="w-full h-10 border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white flex items-center justify-center gap-2"
+                  onClick={() => document.getElementById('csv-upload')?.click()}
+                >
+                  <FileText className="w-4 h-4" /> Bulk Import (CSV/Excel)
+                </Button>
+                <input 
+                  type="file" 
+                  id="csv-upload" 
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+                  className="hidden" 
+                  onChange={handleFileUpload} 
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-2">
+              <div className="flex-1">
                 <AISpeech 
                   context="packing" 
                   userId={localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")!).id : 1}
@@ -1087,6 +1211,94 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
               <Button onClick={() => setReturnConfirmOpen(false)} variant="outline" className="h-12 border-white/10 bg-black/20 text-white hover:bg-white/10 rounded-xl">Hold On</Button>
               <Button onClick={returnStock} className="h-12 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold border-0">Force Conclusion</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CROSS-CHECK DIALOG */}
+      <Dialog open={crossCheckOpen} onOpenChange={setCrossCheckOpen}>
+        <DialogContent className="sm:max-w-[900px] bg-slate-900/95 border border-white/20 text-white backdrop-blur-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+          <DialogHeader className="border-b border-white/10 pb-4 shrink-0">
+            <DialogTitle className="text-2xl font-bold flex items-center justify-between">
+              <div className="flex items-center gap-2"><CheckCircle className="text-purple-400" /> Cross-Check Operations</div>
+              <Select value={crossCheckCategory} onValueChange={setCrossCheckCategory}>
+                <SelectTrigger className="w-[200px] bg-white/5 border-white/10 text-white h-10 rounded-xl focus:ring-purple-500">
+                  <SelectValue placeholder="Category filter" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
+                  <SelectItem value="All">All Categories</SelectItem>
+                  {Array.from(new Set(remainingStock.map(s => s.category))).map((c: any) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-3">
+            {remainingStock.filter((s: any) => crossCheckCategory === "All" || s.category === crossCheckCategory).length === 0 ? (
+              <p className="text-slate-500 text-center py-12 italic">No items found for this category.</p>
+            ) : (
+              remainingStock
+                .filter((s: any) => crossCheckCategory === "All" || s.category === crossCheckCategory)
+                .map((s: any, idx: number) => (
+                <div key={idx} className={`bg-black/20 border p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${s.is_gift ? 'border-rose-500/20 hover:bg-rose-500/5' : 'border-white/5 hover:bg-white/5'}`}>
+                  <div className="flex-1">
+                    <p className={`font-bold text-lg flex items-center gap-2 ${s.is_gift ? 'text-rose-300' : 'text-white'}`}>
+                      {s.is_gift && '🎁'} {s.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest">{s.category} • ₹{s.rate}</p>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    {/* Edit Quantity Section */}
+                    <div className="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/5">
+                      {editingStockId === s.product_id ? (
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="number" 
+                            className="w-20 h-8 bg-black/50 text-white border-white/20 text-center" 
+                            value={editStockQuantity} 
+                            onChange={(e) => setEditStockQuantity(Number(e.target.value))} 
+                          />
+                          <Button size="sm" className="h-8 px-2 bg-emerald-600 hover:bg-emerald-500 text-white" onClick={() => updateStockItem(s.product_id, { quantity_taken: editStockQuantity })}>Save</Button>
+                          <Button size="sm" variant="ghost" className="h-8 px-2 text-slate-400" onClick={() => setEditingStockId(null)}><X className="w-4 h-4" /></Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-right">
+                            <p className="text-xl font-black text-emerald-400">{s.quantity_remaining}</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Avail / {s.quantity_taken} Pckd</p>
+                          </div>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-white" onClick={() => { setEditingStockId(s.product_id); setEditStockQuantity(s.quantity_taken); }}>
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Check-In / Out Section */}
+                    <div className="flex flex-col gap-2 min-w-[120px]">
+                      <label className="flex items-center gap-2 text-sm font-bold text-slate-300 cursor-pointer bg-white/5 p-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
+                        <Checkbox 
+                          checked={s.checked_in} 
+                          onCheckedChange={(val) => updateStockItem(s.product_id, { checked_in: !!val })} 
+                        /> IN (Start)
+                      </label>
+                      <label className="flex items-center gap-2 text-sm font-bold text-slate-300 cursor-pointer bg-white/5 p-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
+                        <Checkbox 
+                          checked={s.checked_out} 
+                          onCheckedChange={(val) => updateStockItem(s.product_id, { checked_out: !!val })} 
+                        /> OUT (End)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="border-t border-white/10 pt-4 mt-2 shrink-0 flex justify-end">
+             <Button onClick={() => setCrossCheckOpen(false)} className="bg-slate-700 hover:bg-slate-600 text-white px-8 rounded-xl font-bold">Done</Button>
           </div>
         </DialogContent>
       </Dialog>

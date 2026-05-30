@@ -662,13 +662,59 @@ def view_remaining_event_stock(event_name: str):
                 "rate": product.rate,
                 "quantity_taken": stock.quantity_taken,
                 "quantity_remaining": stock.quantity_remaining,
-                "is_gift": stock.is_gift
+                "is_gift": stock.is_gift,
+                "checked_in": stock.checked_in,
+                "checked_out": stock.checked_out
             })
             
         return {
             "event": event.name,
             "remaining_stock": result
         }
+
+class EventItemUpdateRequest(BaseModel):
+    checked_in: bool = None
+    checked_out: bool = None
+    quantity_taken: int = None
+
+@router.patch("/events/{event_name}/items/{product_id}")
+def update_event_item(event_name: str, product_id: int, req: EventItemUpdateRequest):
+    with Session(engine) as session:
+        event = session.exec(select(Event).where(Event.name == event_name)).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        stock = session.exec(
+            select(EventStock)
+            .where(EventStock.event_id == event.id, EventStock.product_id == product_id)
+        ).first()
+        if not stock:
+            raise HTTPException(status_code=404, detail="Item not found in event")
+
+        if req.checked_in is not None:
+            stock.checked_in = req.checked_in
+        if req.checked_out is not None:
+            stock.checked_out = req.checked_out
+        if req.quantity_taken is not None:
+            # We need to compute the difference to update quantity_remaining as well.
+            diff = req.quantity_taken - stock.quantity_taken
+            stock.quantity_taken = req.quantity_taken
+            stock.quantity_remaining += diff
+
+            # Update Main Vault ProductBatch as well
+            product_batch = session.exec(
+                select(ProductBatch)
+                .where(ProductBatch.product_id == product_id)
+                .order_by(ProductBatch.manufacturing_date)
+            ).first()
+            if product_batch:
+                product_batch.quantity -= diff
+            else:
+                # If there's no batch but quantity changed, we should just assume they deal with it or log it
+                pass
+
+        session.commit()
+        return {"message": "Event item updated successfully"}
 
 
 @router.get("/events/stock-history")

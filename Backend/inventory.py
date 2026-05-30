@@ -385,6 +385,7 @@ def get_user_main_stock(user_id: int):
 @router.post("/products/import-excel")
 async def import_products_from_excel(
     file: UploadFile = File(...),
+    mode: str = Form("registry"),
     current_user: User = Depends(get_current_user)
 ):
     print(f"DEBUG: Processing file: {file.filename}")
@@ -417,13 +418,20 @@ async def import_products_from_excel(
 
     print(f"DEBUG: Normalized columns: {df.columns.tolist()}")
 
-    required_cols = {"name", "category", "rate"}
-    if not required_cols.issubset(df.columns):
-        print(f"DEBUG: Missing columns. Expected {required_cols}, found {df.columns}")
-        raise HTTPException(400, f"Excel must contain at least: {required_cols}")
+    if mode == "registry":
+        required_cols = {"name", "category", "rate"}
+        if not required_cols.issubset(df.columns):
+            raise HTTPException(400, f"Excel must contain at least: {required_cols}")
+    else:
+        # restock mode
+        required_cols = {"name", "quantity"}
+        if not required_cols.issubset(df.columns):
+            raise HTTPException(400, f"Excel must contain at least: {required_cols}")
 
     if "rate" in df.columns:
         df["rate"] = df["rate"].fillna(0.0)
+    if "category" in df.columns:
+        df["category"] = df["category"].fillna("Uncategorized")
     if "quantity" in df.columns:
         df["quantity"] = df["quantity"].fillna(0)
 
@@ -433,11 +441,13 @@ async def import_products_from_excel(
     with Session(engine) as session:
         for _, row in df.iterrows():
             name = str(row["name"]).strip()
-            category = str(row["category"]).strip()
-            rate = float(row["rate"])
+            
+            # For registry mode, category and rate are guaranteed by required_cols. For restock they might be missing.
+            category = str(row.get("category", "Uncategorized")).strip() if pd.notna(row.get("category", "Uncategorized")) else "Uncategorized"
+            rate = float(row.get("rate", 0.0)) if pd.notna(row.get("rate", 0.0)) else 0.0
 
             quantity = 0
-            if "quantity" in df.columns:
+            if mode == "restock" and "quantity" in df.columns:
                 try:
                     q = int(row["quantity"])
                     if not pd.isna(q):

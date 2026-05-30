@@ -81,6 +81,8 @@ class EventItem(SQLModel, table=True):
     product_id: int = Field(foreign_key="products.id")
     quantity_allocated: int
     quantity_remaining: int
+    checked_in: bool = Field(default=False)
+    checked_out: bool = Field(default=False)
     added_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -103,6 +105,8 @@ class EventStock(SQLModel, table=True):
     quantity_taken: int
     quantity_remaining: int
     is_gift: bool = Field(default=False)
+    checked_in: bool = Field(default=False)
+    checked_out: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class EventStockHistory(SQLModel, table=True):
