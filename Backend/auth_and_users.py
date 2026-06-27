@@ -55,9 +55,24 @@ class LoginRequest(BaseModel):
 @router.post("/auth/login")
 def login(data: LoginRequest):
     with Session(engine) as session:
-        user = session.exec(select(User).where(User.username == data.username)).first()
-        if not user or not verify_password(data.password, user.password_hash):
+        clean_username = data.username.strip()
+        user = session.exec(select(User).where(User.username == clean_username)).first()
+        
+        if not user:
             raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+        clean_password = data.password.strip()
+        
+        # Try checking with the stripped password first
+        if not verify_password(clean_password, user.password_hash):
+            # If it fails, try the raw password (in case it was created with spaces earlier)
+            if verify_password(data.password, user.password_hash):
+                # If raw password matched, auto-fix the hash in the DB to match the clean password
+                user.password_hash = hash_password(clean_password)
+                session.commit()
+            else:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+
 
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
@@ -108,14 +123,17 @@ def setup_admin():
 @router.post("/users")
 def create_user(data: UserCreateRequest, current_user: User = Depends(require_admin)):
     with Session(engine) as session:
-        existing = session.exec(select(User).where(User.username == data.username)).first()
+        clean_username = data.username.strip()
+        clean_password = data.password.strip()
+        
+        existing = session.exec(select(User).where(User.username == clean_username)).first()
         if existing:
             raise HTTPException(400, "Username already exists")
 
         user = User(
-            username=data.username,
-            name=data.name,
-            password_hash=hash_password(data.password),
+            username=clean_username,
+            name=data.name.strip() if data.name else "",
+            password_hash=hash_password(clean_password),
             role=data.role
         )
         session.add(user)

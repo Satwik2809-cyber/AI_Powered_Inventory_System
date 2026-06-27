@@ -92,11 +92,37 @@ def refresh_inventory_alerts(session: Session):
                     self.name = p.name
                     self.quantity = b.quantity
                     self.expiry_date = b.expiry_date
-            
             check_inventory_alerts(ItemProxy(product, b))
 
+    # Also check EventStock levels for low stock
+    from models import EventStock, Event
+    event_stocks = session.exec(select(EventStock).where(EventStock.quantity_remaining > 0)).all()
+    for estock in event_stocks:
+        event = session.get(Event, estock.event_id)
+        if event and event.status in ["active", "packing"]:
+            if estock.quantity_remaining <= 5:
+                product = session.get(Product, estock.product_id)
+                if product:
+                    push_alert(
+                        "event",
+                        "Critical Event Stock",
+                        f"{product.name} running critically low at {event.name} ({estock.quantity_remaining} left)",
+                        "critical",
+                        estock.id
+                    )
+            elif estock.quantity_remaining <= 15:
+                product = session.get(Product, estock.product_id)
+                if product:
+                    push_alert(
+                        "event",
+                        "Low Event Stock",
+                        f"{product.name} running low at {event.name} ({estock.quantity_remaining} left)",
+                        "warning",
+                        estock.id
+                    )
 
 # ---------------- SALE ALERT ---------------- #
+
 
 def on_sale_created(sale):
     push_alert(

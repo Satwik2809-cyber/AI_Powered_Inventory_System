@@ -150,8 +150,16 @@ export default function UserVault({ currentUser }: any) {
         `/events/stock/user?event_name=${encodeURIComponent(selectedEventName)}&user_id=${currentUser.id}`
       );
       setItems(res.items || []);
-    } catch {
-      toast.error("Unable to load event stock. Ensure you have products packed for this event.");
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        toast.error("You are not assigned to this event or no longer have access.");
+        setSelectedEventName("");
+        setSelectedEventId("");
+        localStorage.removeItem("uv_selectedEventId");
+        localStorage.removeItem("uv_selectedEventName");
+      } else {
+        toast.error("Unable to load event stock. Ensure you have products packed for this event.");
+      }
     }
   };
 
@@ -316,6 +324,11 @@ export default function UserVault({ currentUser }: any) {
         payment_mode: paymentMode,
         items: cart,
       });
+
+      // Play success sound on sale completion
+      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3");
+      audio.volume = 0.6;
+      audio.play().catch(e => console.log("Audio play blocked", e));
 
       toast.success("Sale completed successfully!");
       setCart([]);
@@ -762,14 +775,16 @@ export default function UserVault({ currentUser }: any) {
         </div>
       )}
 
-      {/* Confirmation Dialog for Camera Matches */}
+      {/* Confirmation Dialog for Matches/Ambiguity */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="bg-slate-900 border border-white/20 text-white sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2"><Camera className="text-teal-400" /> Camera Match Found</DialogTitle>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Search className="text-teal-400 h-5 w-5" /> Select Specific Item
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3 py-4">
+          <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
             {confirmOptions.map((opt, idx) => (
               <div
                 key={idx}

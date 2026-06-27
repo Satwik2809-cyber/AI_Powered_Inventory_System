@@ -283,17 +283,42 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
   const processImportData = (data: any[]) => {
     let newCart = [...packCart];
     let addedCount = 0;
+    let stockRejectedCount = 0;
+    
+    let actualNameKey: string | null = null;
+    let actualQtyKey: string | null = null;
     
     data.forEach((row) => {
-      // Find possible keys for name and quantity
-      const nameKey = Object.keys(row).find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('item') || k.toLowerCase() === 'product');
-      const qtyKey = Object.keys(row).find(k => k.toLowerCase().includes('qty') || k.toLowerCase().includes('quantity'));
-      
-      if (nameKey && qtyKey) {
-        const itemName = String(row[nameKey]).trim();
-        const itemQty = Number(row[qtyKey]);
+      // Find possible keys for name and quantity if not already found
+      if (!actualNameKey || !actualQtyKey) {
+        const keys = Object.keys(row);
+        const nameKey = keys.find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('item') || k.toLowerCase() === 'product' || k.toLowerCase().includes('particular'));
+        const qtyKey = keys.find(k => k.toLowerCase().includes('qty') || k.toLowerCase().includes('quantity'));
         
-        if (itemName && itemQty > 0) {
+        if (nameKey && qtyKey) {
+          actualNameKey = nameKey;
+          actualQtyKey = qtyKey;
+        } else {
+          // Check if values contain the headers (in case of a title row above headers)
+          const values = Object.values(row).map(v => String(v).toLowerCase());
+          const nameValIndex = values.findIndex(v => v.includes('name') || v.includes('item') || v === 'product' || v.includes('particular'));
+          const qtyValIndex = values.findIndex(v => v.includes('qty') || v.includes('quantity'));
+          
+          if (nameValIndex !== -1 && qtyValIndex !== -1) {
+            actualNameKey = keys[nameValIndex];
+            actualQtyKey = keys[qtyValIndex];
+            return; // Skip this row as it's just the header row
+          }
+        }
+      }
+      
+      // If we found the correct column mapping, process the row
+      if (actualNameKey && actualQtyKey) {
+        const itemName = String(row[actualNameKey] || '').trim();
+        const itemQty = Number(row[actualQtyKey]);
+        
+        // Ensure we don't process the header row itself if it was caught in the keys
+        if (itemName && itemName.toLowerCase() !== 'name' && itemName.toLowerCase() !== 'particular' && itemName.toLowerCase() !== 'item' && itemQty > 0) {
           let matchedProducts = products.filter(p => p.name.toLowerCase() === itemName.toLowerCase() || p.name.toLowerCase().includes(itemName.toLowerCase()));
           if (matchedProducts.length > 0) {
             const p = matchedProducts[0];
@@ -302,6 +327,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
               addedCount++;
             } else {
               toast.error(`Not enough stock for ${itemName} (Only ${p.quantity} available)`);
+              stockRejectedCount++;
             }
           } else {
              toast.error(`Item ${itemName} not found in inventory`);
@@ -313,6 +339,8 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
     if (addedCount > 0) {
        setPackCart(newCart);
        toast.success(`${addedCount} items added from file`);
+    } else if (stockRejectedCount > 0) {
+       toast.error(`${stockRejectedCount} items were found in the file, but rejected because they are OUT OF STOCK in the Main Vault.`);
     } else {
        toast.error("No valid items found to import. Ensure columns 'Name' and 'Quantity' exist.");
     }
@@ -1015,7 +1043,7 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
             </div>
 
             <div className="bg-black/30 border border-white/5 rounded-2xl max-h-48 overflow-y-auto custom-scrollbar p-2">
-              {products.filter(p => !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase())).map((p) => (
+              {products.filter(p => p.quantity > 0 && (!searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase()))).map((p) => (
                 <div key={p.id} className={`p-3 cursor-pointer rounded-xl flex justify-between items-center transition-colors mb-1 ${packData.product_name === p.name ? 'bg-purple-600/30 border border-purple-500/50' : 'hover:bg-white/5 border border-transparent'}`} onClick={() => setPackData({ ...packData, product_name: p.name })}>
                   <span className="font-bold text-white">{p.name}</span>
                   <Badge variant="outline" className={`${p.quantity <= 10 ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-white/10'}`}>{p.quantity} Units Base</Badge>

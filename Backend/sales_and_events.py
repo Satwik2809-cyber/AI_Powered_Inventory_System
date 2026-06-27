@@ -1356,7 +1356,7 @@ def get_user_event_stock(event_name: str, user_id: int):
                 )
             ).first()
             user = session.get(User, user_id)
-            if not allowed and (not user or user.role != "admin"):
+            if not allowed and (not user or user.role.lower() != "admin"):
                 raise HTTPException(
                     status_code=403,
                     detail="You are not assigned as seller for this event"
