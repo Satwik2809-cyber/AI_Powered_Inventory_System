@@ -68,14 +68,15 @@ def create_db_and_tables():
     )
     SQLModel.metadata.create_all(engine)
 
+    from sqlalchemy import text
     # Auto-migrate eventstock columns & clean up usernames
     with Session(engine) as session:
         try:
-            session.execute("ALTER TABLE eventstock ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT FALSE")
-            session.execute("ALTER TABLE eventstock ADD COLUMN IF NOT EXISTS checked_out BOOLEAN DEFAULT FALSE")
+            session.execute(text("ALTER TABLE eventstock ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT FALSE"))
+            session.execute(text("ALTER TABLE eventstock ADD COLUMN IF NOT EXISTS checked_out BOOLEAN DEFAULT FALSE"))
             
             # Clean up existing usernames with leading/trailing spaces
-            session.execute("UPDATE users SET username = TRIM(username) WHERE username != TRIM(username)")
+            session.execute(text("UPDATE users SET username = TRIM(username) WHERE username != TRIM(username)"))
             
             session.commit()
         except Exception as e:
