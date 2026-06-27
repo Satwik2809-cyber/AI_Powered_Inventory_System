@@ -812,9 +812,6 @@ def export_monthly_report_excel(
         ).first()
         if active and active.start_date.month == target_month and active.start_date.year == target_year:
             matching_report = active
-            # For draft, we need to generate the report data (simulating finalize/draft logic)
-            # This is complex, so for now let's just use the draft logic or raise error
-            raise HTTPException(400, "Draft reports cannot be exported as Excel yet. Please finalize first.")
         else:
             raise HTTPException(404, "No report found for this period")
 
@@ -837,11 +834,12 @@ def export_monthly_report_excel(
 
     # Sheet 2: Sales Analysis (Full transaction log)
     # Fetch all sales in the confirmed report's period
+    end_date = matching_report.end_date or datetime.utcnow()
     sales = session.exec(
-        select(Sale).where(Sale.created_at >= matching_report.start_date, Sale.created_at <= matching_report.end_date)
+        select(Sale).where(Sale.created_at >= matching_report.start_date, Sale.created_at <= end_date)
     ).all()
     event_sales = session.exec(
-        select(EventSale).where(EventSale.created_at >= matching_report.start_date, EventSale.created_at <= matching_report.end_date)
+        select(EventSale).where(EventSale.created_at >= matching_report.start_date, EventSale.created_at <= end_date)
     ).all()
     
     transaction_rows = []

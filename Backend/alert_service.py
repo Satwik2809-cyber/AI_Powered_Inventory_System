@@ -149,7 +149,17 @@ def on_event_status_change(event, old_status):
 # ---------------- API HELPERS ---------------- #
 
 def get_alerts():
-    return alerts[::-1]  # latest first
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=1)
+    recent = [a for a in alerts if a.created_at >= cutoff]
+    
+    def severity_score(a):
+        if a.severity == "critical": return 0
+        if a.severity == "warning": return 1
+        return 2
+        
+    recent.sort(key=lambda x: (severity_score(x), -x.created_at.timestamp()))
+    return recent
 
 def mark_alert_seen(alert_id: int):
     for a in alerts:

@@ -28,7 +28,9 @@ import {
   Search,
   Sparkles,
   Package,
-  Gift
+  Gift,
+  Bell,
+  AlertTriangle
 } from "lucide-react";
 
 interface EventItem {
@@ -60,6 +62,7 @@ export default function UserVault({ currentUser }: any) {
   const [cart, setCart] = useState<any[]>([]);
   const [paymentMode, setPaymentMode] = useState("cash");
   const [isGift, setIsGift] = useState(false);
+  const [eventAlerts, setEventAlerts] = useState<any[]>([]);
 
   // State for Sales History Tab
   const [posTab, setPosTab] = useState<"cart" | "history">("cart");
@@ -80,6 +83,29 @@ export default function UserVault({ currentUser }: any) {
       loadSalesHistory();
     }
   }, [selectedEventName, posTab]);
+
+  useEffect(() => {
+    async function loadAlerts() {
+      if (!selectedEventName) {
+        setEventAlerts([]);
+        return;
+      }
+      try {
+        const data = await apiGet("/alerts");
+        // Filter alerts that mention this event name and are event type
+        const filtered = data.filter((a: any) => 
+          a.type === "event" && 
+          a.message.toLowerCase().includes(selectedEventName.toLowerCase())
+        );
+        setEventAlerts(filtered);
+      } catch (e) {
+        // silently fail on alerts fetch
+      }
+    }
+    loadAlerts();
+    const interval = setInterval(loadAlerts, 20000);
+    return () => clearInterval(interval);
+  }, [selectedEventName]);
 
   // Load assigned events on mount
   useEffect(() => {
@@ -598,7 +624,27 @@ export default function UserVault({ currentUser }: any) {
                 </button>
               </div>
 
-              {posTab === "cart" ? (
+          {/* EVENT ALERTS BANNER */}
+          {dayStarted && eventAlerts.length > 0 && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mt-6">
+              <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2">
+                <Bell className="w-5 h-5" /> Event Alerts ({eventAlerts.length})
+              </h3>
+              <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                {eventAlerts.map(alert => (
+                  <div key={alert.id} className="flex gap-2 items-start text-sm">
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-orange-400'}`} />
+                    <div>
+                      <p className={`font-semibold ${alert.severity === 'critical' ? 'text-red-300' : 'text-orange-300'}`}>{alert.title}</p>
+                      <p className="text-slate-300 text-xs">{alert.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {posTab === "cart" ? (
                 <>
                   {/* Input Section */}
                   <div className="p-4 space-y-4 bg-black/20">
