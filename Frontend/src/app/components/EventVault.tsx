@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, apiPut, apiPatch } from "../api";
+import { apiGet, apiPost, apiPut, apiPatch, apiDownload } from "../api";
 import { toast } from "sonner";
 import AISpeech from "./AISpeech";
 import CameraScan from "./CameraScan";
@@ -378,28 +378,11 @@ export default function EventVault({ isAdmin }: { isAdmin?: boolean }) {
   async function downloadReport() {
     if (!openedEvent) return;
     try {
-      // Create an explicit anchor element to trigger the browser download
-      const response = await fetch(`http://localhost:8000/events/summary/excel/${encodeURIComponent(openedEvent.name)}`, {
-        method: "GET",
-        headers: {
-          "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate report");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Event_Summary_${openedEvent.name.replace(/\s+/g, '_')}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-
+      toast.info("Generating report...");
+      const url = `/events/summary/excel/${encodeURIComponent(openedEvent.name)}`;
+      const filename = `Event_Summary_${openedEvent.name.replace(/\s+/g, '_')}.xlsx`;
+      
+      await apiDownload(url, filename);
       toast.success("Report Downloaded Successfully");
     } catch { toast.error("Failed to download report"); }
   }
