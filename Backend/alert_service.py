@@ -11,6 +11,12 @@ alert_id = 1
 def push_alert(type, title, message, severity="info", related_id=None):
     global alert_id
 
+    # Deduplicate: Remove previous alert of same type and related_id
+    if type in ["inventory", "event", "expiry"] and related_id is not None:
+        global alerts
+        # Filter out existing alerts that match this type and related_id
+        alerts = [a for a in alerts if not (a.type == type and a.related_id == related_id)]
+
     alerts.append(
         Alert(
             id=alert_id,
