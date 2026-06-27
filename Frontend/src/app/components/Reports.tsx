@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { apiGet, apiPost } from "../api";
+import { apiGet, apiPost, apiDownload } from "../api";
 import { toast } from "sonner";
 import {
   Table,
@@ -231,27 +231,7 @@ export default function Reports() {
       
       toast.info("Preparing Excel Download...");
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Export failed");
-      }
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      window.URL.revokeObjectURL(blobUrl);
-      document.body.removeChild(link);
+      await apiDownload(url, filename);
       
       toast.success("Excel Export Successful");
     } catch (err: any) {

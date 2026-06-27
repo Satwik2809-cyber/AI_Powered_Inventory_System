@@ -6,6 +6,7 @@ import { DashboardView } from "./Dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 
 import {
   ShoppingCart,
@@ -40,6 +41,8 @@ export default function DashboardHome({
   const [eventDash, setEventDash] = useState<any>(null);
   const [activeEvent, setActiveEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardAlerts, setDashboardAlerts] = useState<any[]>([]);
+  const [showAlertsDialog, setShowAlertsDialog] = useState(false);
 
   // Used safe fallback for missing names previously
   const displayName = currentUser?.name || currentUser?.username || "Admin";
@@ -105,6 +108,10 @@ export default function DashboardHome({
         setActiveEvent(null);
         setEventDash(null);
       }
+
+      // Fetch alerts for the dashboard
+      const alertsData = await apiGet("/alerts");
+      setDashboardAlerts(alertsData || []);
     } catch (err: any) {
       toast.error("Dashboard API failed");
     } finally {
@@ -208,7 +215,7 @@ export default function DashboardHome({
         {/* STOCK ALERT MINI CARD */}
         <Card
           className="relative overflow-hidden border border-white/10 bg-slate-900/80 backdrop-blur-md rounded-3xl group cursor-pointer shadow-[0_0_40px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-300"
-          onClick={() => setCurrentView("main-vault")}
+          onClick={() => setShowAlertsDialog(true)}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent"></div>
           <CardContent className="relative p-8 h-full flex flex-col justify-between">
@@ -223,15 +230,46 @@ export default function DashboardHome({
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Low Stock Alerts</h3>
               <div className="text-4xl font-extrabold text-orange-400 mb-2">
-                {dashboard.critical_stock || dashboard.low_stock || "0"} <span className="text-lg text-slate-400 font-medium">items</span>
+                {dashboardAlerts.length > 0 ? dashboardAlerts.length : (dashboard.critical_stock || dashboard.low_stock || "0")} <span className="text-lg text-slate-400 font-medium">items</span>
               </div>
             </div>
             <div className="flex items-center text-orange-300 mt-4 font-semibold group-hover:translate-x-2 transition-transform">
-              Check Inventory <ArrowRight className="ml-2 w-4 h-4" />
+              View Alerts <ArrowRight className="ml-2 w-4 h-4" />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* ALERTS DIALOG */}
+      <Dialog open={showAlertsDialog} onOpenChange={setShowAlertsDialog}>
+        <DialogContent className="sm:max-w-[500px] bg-slate-900 text-white border-white/10 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <AlertTriangle className="text-orange-500 h-6 w-6" /> System Alerts
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Recent low stock and critical inventory warnings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 mt-4 space-y-3">
+            {dashboardAlerts.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <CheckCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                <p>No active alerts. Inventory is healthy.</p>
+              </div>
+            ) : (
+              dashboardAlerts.map(alert => (
+                <div key={alert.id} className={`p-4 rounded-xl border ${alert.severity === 'critical' ? 'bg-red-500/10 border-red-500/30' : 'bg-orange-500/10 border-orange-500/30'}`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <h4 className={`font-bold ${alert.severity === 'critical' ? 'text-red-400' : 'text-orange-400'}`}>{alert.title}</h4>
+                  </div>
+                  <p className="text-sm text-slate-300">{alert.message}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ACTION PANELS */}
       <h2 className="text-2xl font-bold text-slate-200 pl-2">Quick Actions</h2>
