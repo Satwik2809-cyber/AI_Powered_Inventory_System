@@ -516,6 +516,7 @@ export default function BrainVault() {
           </div>
         ))}
       </div>
+      )}
 
       {/* ADD USER DIALOG */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
