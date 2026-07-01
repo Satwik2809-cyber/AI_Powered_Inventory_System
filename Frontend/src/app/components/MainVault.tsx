@@ -681,23 +681,27 @@ export default function MainVault({
 
               <CardContent className="p-6 flex-1 flex flex-col space-y-6">
                 {/* Input Bar */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3">
+                  <div className="relative w-full sm:flex-1">
                     <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-                    <Input placeholder="Scan or type item name..." className="h-12 pl-10 bg-black/40 border-white/10 text-white rounded-xl focus:border-emerald-500 text-lg" value={sellName} onChange={(e) => setSellName(e.target.value)} />
+                    <Input placeholder="Scan or type item name..." className="h-12 pl-10 bg-black/40 border-white/10 text-white rounded-xl focus:border-emerald-500 text-lg w-full" value={sellName} onChange={(e) => setSellName(e.target.value)} />
                   </div>
-                  <Input type="number" placeholder="₹ Rate" className="h-12 w-24 bg-black/40 border-white/10 text-emerald-300 rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellRate} onChange={(e) => setSellRate(e.target.value)} title="Override Rate (Optional)" />
-                  <Input type="number" placeholder="Qty" className="h-12 w-24 bg-black/40 border-white/10 text-white rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellQty} onChange={(e) => setSellQty(e.target.value)} />
-                  <label className="flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 rounded-xl hover:bg-white/10 transition-colors">
-                    <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
-                    <span className="text-white font-bold">🎁</span>
-                  </label>
-                  <Button onClick={addToCart} className="h-12 px-8 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/20">Add</Button>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Input type="number" placeholder="₹ Rate" className="h-12 flex-1 sm:w-24 bg-black/40 border-white/10 text-emerald-300 rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellRate} onChange={(e) => setSellRate(e.target.value)} title="Override Rate (Optional)" />
+                    <Input type="number" placeholder="Qty" className="h-12 flex-1 sm:w-24 bg-black/40 border-white/10 text-white rounded-xl focus:border-emerald-500 text-center text-lg font-bold" value={sellQty} onChange={(e) => setSellQty(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 h-12 rounded-xl hover:bg-white/10 transition-colors">
+                      <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
+                      <span className="text-white font-bold hidden sm:inline">🎁</span><span className="text-white font-bold sm:hidden">🎁 Gift</span>
+                    </label>
+                    <Button onClick={addToCart} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-lg font-bold shadow-lg shadow-emerald-500/20">Add</Button>
+                  </div>
                 </div>
 
                 {/* Automation Box */}
-                <div className="bg-black/20 border border-white/5 p-4 rounded-2xl flex flex-col sm:flex-row gap-4 items-center justify-between">
-                  <div className="flex-1 w-full">
+                <div className="bg-black/20 border border-white/5 p-4 rounded-2xl grid grid-cols-2 sm:flex gap-4 items-center justify-between">
+                  <div className="col-span-1 sm:flex-1 w-full flex">
                     <AISpeech
                       context="daily_sell" userId={currentUser.id}
                       onFill={(data: any) => {
@@ -714,7 +718,7 @@ export default function MainVault({
                       onSuccess={() => loadProducts()}
                     />
                   </div>
-                  <div className="flex-1 w-full h-12 flex border border-white/10 rounded-xl bg-white/5 overflow-hidden">
+                  <div className="col-span-1 sm:flex-1 w-full h-12 flex border border-white/10 rounded-xl bg-white/5 overflow-hidden">
                     <CameraScan
                       onAutoMatch={(product: any) => { setSellName(product.name); setSellRate(String(product.rate)); }}
                       onConfirmMatch={(options: any[]) => { setConfirmOptions(options); setConfirmOpen(true); }}
@@ -732,14 +736,14 @@ export default function MainVault({
                   ) : (
                     <div className="space-y-3">
                       {cart.map((c, i) => (
-                        <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-4 rounded-xl hover:bg-white/10 transition-colors">
-                          <div className="flex-1 pr-4">
-                            <p className="font-bold text-white text-lg">{(c as any).name} {(c as any).is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0 text-sm">🎁 Gift</Badge>}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-slate-400 text-xs font-bold">Qty:</span>
+                        <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 sm:p-4 rounded-xl hover:bg-white/10 transition-colors">
+                          <div className="flex-1 min-w-0 pr-2 sm:pr-4">
+                            <p className="font-bold text-white text-sm sm:text-lg truncate">{(c as any).name} {(c as any).is_gift && <Badge className="ml-1 sm:ml-2 bg-purple-500/20 text-purple-300 border-0 text-[10px] sm:text-sm">🎁 Gift</Badge>}</p>
+                            <div className="flex items-center gap-1 sm:gap-2 mt-1">
+                              <span className="text-slate-400 text-[10px] sm:text-xs font-bold">Qty:</span>
                               <input
                                 type="number"
-                                className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-sm text-white text-center focus:outline-none focus:border-emerald-500"
+                                className="w-12 sm:w-16 bg-black/40 border border-white/10 rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm text-white text-center focus:outline-none focus:border-emerald-500 h-6 sm:h-8"
                                 value={c.quantity}
                                 min="1"
                                 onChange={(e) => {
@@ -751,13 +755,13 @@ export default function MainVault({
                                   }
                                 }}
                               />
-                              <span className="text-slate-500 text-sm">× ₹{c.rate}</span>
+                              <span className="text-slate-500 text-xs sm:text-sm">× ₹{c.rate}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <span className={`font-black text-xl ${(c as any).is_gift ? 'text-slate-500 line-through' : 'text-teal-400'}`}>₹{(c.rate * c.quantity).toLocaleString()}</span>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 text-rose-400 hover:text-white hover:bg-rose-500/80 rounded-lg" onClick={() => removeFromCart(i)}>
-                              <Trash2 className="h-5 w-5" />
+                          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                            <span className={`font-black text-base sm:text-xl ${(c as any).is_gift ? 'text-slate-500 line-through' : 'text-teal-400'}`}>₹{(c.rate * c.quantity).toLocaleString()}</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10 text-rose-400 hover:text-white hover:bg-rose-500/80 rounded-lg" onClick={() => removeFromCart(i)}>
+                              <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                             </Button>
                           </div>
                         </div>

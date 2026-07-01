@@ -65,7 +65,7 @@ export default function UserVault({ currentUser }: any) {
   const [eventAlerts, setEventAlerts] = useState<any[]>([]);
 
   // State for Sales History Tab
-  const [posTab, setPosTab] = useState<"cart" | "history">("cart");
+  const [posTab, setPosTab] = useState<"cart" | "history" | "alerts">("cart");
   const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
   const loadSalesHistory = async () => {
@@ -609,75 +609,97 @@ export default function UserVault({ currentUser }: any) {
               )}
 
               {/* Tabs */}
-              <div className="flex border-b border-white/10">
+              <div className="flex border-b border-white/10 shrink-0">
                 <button
-                  className={`flex-1 py-3 font-bold text-sm transition-colors ${posTab === "cart" ? "bg-white/10 text-emerald-400" : "text-slate-400 hover:bg-white/5"}`}
+                  className={`flex-1 py-3 font-bold text-xs sm:text-sm transition-colors ${posTab === "cart" ? "bg-white/10 text-emerald-400" : "text-slate-400 hover:bg-white/5"}`}
                   onClick={() => setPosTab("cart")}
                 >
                   Current Cart
                 </button>
                 <button
-                  className={`flex-1 py-3 font-bold text-sm transition-colors ${posTab === "history" ? "bg-white/10 text-emerald-400" : "text-slate-400 hover:bg-white/5"}`}
+                  className={`flex-1 py-3 font-bold text-xs sm:text-sm transition-colors ${posTab === "history" ? "bg-white/10 text-emerald-400" : "text-slate-400 hover:bg-white/5"}`}
                   onClick={() => setPosTab("history")}
                 >
                   My Sales
                 </button>
+                {dayStarted && (
+                  <button
+                    className={`flex-1 py-3 font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-1 ${posTab === "alerts" ? "bg-white/10 text-red-400" : "text-slate-400 hover:bg-white/5"}`}
+                    onClick={() => setPosTab("alerts")}
+                  >
+                    Alerts
+                    {eventAlerts.length > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{eventAlerts.length}</span>
+                    )}
+                  </button>
+                )}
               </div>
 
-          {/* EVENT ALERTS BANNER */}
-          {dayStarted && eventAlerts.length > 0 && (
-            <div className="shrink-0 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mx-4 mt-4 mb-2">
-              <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2">
-                <Bell className="w-5 h-5" /> Event Alerts ({eventAlerts.length})
-              </h3>
-              <div className="space-y-2 max-h-24 overflow-y-auto custom-scrollbar pr-2">
-                {eventAlerts.map(alert => (
-                  <div key={alert.id} className="flex gap-2 items-start text-sm">
-                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-orange-400'}`} />
-                    <div>
-                      <p className={`font-semibold ${alert.severity === 'critical' ? 'text-red-300' : 'text-orange-300'}`}>{alert.title}</p>
-                      <p className="text-slate-300 text-xs">{alert.message}</p>
-                    </div>
+          {/* EVENT ALERTS TAB CONTENT */}
+          {posTab === "alerts" && (
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {eventAlerts.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60">
+                  <Bell className="h-12 w-12 mb-2" />
+                  <p>No critical event alerts.</p>
+                </div>
+              ) : (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4">
+                  <h3 className="text-red-400 font-bold flex items-center gap-2 mb-4 text-lg">
+                    <Bell className="w-5 h-5" /> Active Event Alerts
+                  </h3>
+                  <div className="space-y-4">
+                    {eventAlerts.map(alert => (
+                      <div key={alert.id} className="flex gap-3 items-start bg-black/20 p-3 rounded-xl border border-red-500/20">
+                        <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-orange-400'}`} />
+                        <div>
+                          <p className={`font-bold text-sm ${alert.severity === 'critical' ? 'text-red-300' : 'text-orange-300'}`}>{alert.title}</p>
+                          <p className="text-slate-300 text-xs mt-1 leading-relaxed">{alert.message}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
           {posTab === "cart" ? (
                 <>
                   {/* Input Section */}
-                  <div className="shrink-0 p-4 space-y-4 bg-black/20">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <div className="shrink-0 p-3 sm:p-4 space-y-3 sm:space-y-4 bg-black/20">
+                    <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                      <div className="relative w-full sm:flex-1">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Item name..."
-                          className="pl-9 bg-white/5 border-white/10 text-white h-10 focus:border-emerald-500"
+                          className="pl-9 bg-white/5 border-white/10 text-white h-10 focus:border-emerald-500 w-full"
                           value={sellName}
                           onChange={(e) => setSellName(e.target.value)}
                         />
                       </div>
-                      <Input
-                        type="number"
-                        placeholder="Rate"
-                        className="w-20 bg-white/5 border-white/10 text-emerald-300 h-10 font-bold flex-none focus:border-emerald-500 text-center"
-                        value={sellRate}
-                        onChange={(e) => setSellRate(e.target.value)}
-                        title="Override Rate (Optional)"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Qty"
-                        className="w-20 bg-white/5 border-white/10 text-white h-10 font-bold flex-none focus:border-emerald-500 text-center"
-                        value={sellQty}
-                        onChange={(e) => setSellQty(e.target.value)}
-                      />
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <Input
+                          type="number"
+                          placeholder="Rate"
+                          className="flex-1 sm:w-20 bg-white/5 border-white/10 text-emerald-300 h-10 font-bold focus:border-emerald-500 text-center"
+                          value={sellRate}
+                          onChange={(e) => setSellRate(e.target.value)}
+                          title="Override Rate (Optional)"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Qty"
+                          className="flex-1 sm:w-20 bg-white/5 border-white/10 text-white h-10 font-bold focus:border-emerald-500 text-center"
+                          value={sellQty}
+                          onChange={(e) => setSellQty(e.target.value)}
+                        />
+                      </div>
                     </div>
 
                     {/* Automation Tools */}
-                    <div className="flex gap-2">
-                      <div className="flex-1">
+                    <div className="grid grid-cols-2 sm:flex gap-2 items-center">
+                      <div className="col-span-1 sm:flex-1 h-10 flex">
                         <AISpeech
                           context="event_sell"
                           eventName={selectedEventName}
@@ -694,7 +716,7 @@ export default function UserVault({ currentUser }: any) {
                         />
                       </div>
 
-                      <div className="flex-1 h-10 flex border border-white/10 rounded-md bg-white/5 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
+                      <div className="col-span-1 sm:flex-1 h-10 flex border border-white/10 rounded-md bg-white/5 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
                         <CameraScan
                           context="event_sell"
                           eventName={selectedEventName}
@@ -708,14 +730,16 @@ export default function UserVault({ currentUser }: any) {
                         />
                       </div>
                       
-                      <label className="flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 rounded-md hover:bg-white/10 transition-colors">
-                        <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
-                        <span className="text-white text-sm font-bold">🎁 Gift</span>
-                      </label>
+                      <div className="col-span-2 sm:col-span-1 flex gap-2 w-full sm:w-auto">
+                        <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 h-10 rounded-md hover:bg-white/10 transition-colors">
+                          <input type="checkbox" className="w-4 h-4 accent-emerald-500" checked={isGift} onChange={(e) => setIsGift(e.target.checked)} />
+                          <span className="text-white text-sm font-bold">🎁 Gift</span>
+                        </label>
 
-                      <Button onClick={addToCart} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg h-10 px-6 font-bold flex-none">
-                        Add
-                      </Button>
+                        <Button onClick={addToCart} className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg h-10 px-6 font-bold">
+                          Add
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -728,14 +752,14 @@ export default function UserVault({ currentUser }: any) {
                       </div>
                     ) : (
                       cart.map((c, i) => (
-                        <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl hover:bg-white/10 transition-colors">
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-bold text-white truncate text-sm">{c.name} {c.is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0">🎁 Gift</Badge>}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-slate-400">Qty:</span>
+                        <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-2 sm:p-3 rounded-xl hover:bg-white/10 transition-colors">
+                          <div className="min-w-0 flex-1 pr-1 sm:pr-2">
+                            <p className="font-bold text-white truncate text-xs sm:text-sm">{c.name} {c.is_gift && <Badge className="ml-1 sm:ml-2 bg-purple-500/20 text-purple-300 border-0 text-[10px] sm:text-xs">🎁 Gift</Badge>}</p>
+                            <div className="flex items-center gap-1 sm:gap-2 mt-1">
+                              <span className="text-[10px] sm:text-xs text-slate-400">Qty:</span>
                               <input
                                 type="number"
-                                className="w-16 bg-black/30 border border-white/10 rounded px-1 text-xs text-white text-center h-6 focus:outline-none focus:border-emerald-500"
+                                className="w-12 sm:w-16 bg-black/30 border border-white/10 rounded px-1 text-[10px] sm:text-xs text-white text-center h-5 sm:h-6 focus:outline-none focus:border-emerald-500"
                                 value={c.quantity}
                                 min="1"
                                 onChange={(e) => {
@@ -747,18 +771,18 @@ export default function UserVault({ currentUser }: any) {
                                   }
                                 }}
                               />
-                              <span className="text-xs text-slate-400">× ₹{c.rate}</span>
+                              <span className="text-[10px] sm:text-xs text-slate-400">× ₹{c.rate}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className={`font-bold ${c.is_gift ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>₹{c.quantity * c.rate}</span>
+                          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+                            <span className={`font-bold text-sm sm:text-base ${c.is_gift ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>₹{c.quantity * c.rate}</span>
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-rose-400 hover:text-white hover:bg-rose-500/80 rounded"
+                              className="h-6 w-6 sm:h-7 sm:w-7 text-rose-400 hover:text-white hover:bg-rose-500/80 rounded"
                               onClick={() => setCart(cart.filter((_, idx) => idx !== i))}
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           </div>
                         </div>
