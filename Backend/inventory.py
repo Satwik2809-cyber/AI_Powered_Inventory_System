@@ -17,7 +17,7 @@ from datetime import date, datetime
 
 from database import engine
 from models import (
-    Product, ProductBatch, UserArea, StockHistory, User,
+    Product, ProductBatch, UserArea, StockHistory, User, Category,
     ProductCreateRequest, ProductRestockRequest, ProductUpdateRequest
 )
 from auth_and_users import get_current_user
@@ -119,6 +119,83 @@ def match_product_by_image(uploaded_image_path: str):
     if min_diff <= 10:
         return best_match
     return None
+
+
+# ─────────────────────────────────────────────
+# CATEGORIES
+# ─────────────────────────────────────────────
+
+@router.get("/categories")
+def get_categories():
+    with Session(engine) as session:
+        categories = session.exec(select(Category).order_by(Category.name)).all()
+        return [c.name for c in categories]
+
+@router.post("/categories")
+def add_category(name: str = Form(...), current_user: User = Depends(get_current_user)):
+    name = name.strip()
+    if not name:
+        raise HTTPException(400, "Category name cannot be empty")
+    
+    with Session(engine) as session:
+        existing = session.exec(select(Category).where(Category.name == name)).first()
+        if existing:
+            raise HTTPException(400, "Category already exists")
+            
+        new_cat = Category(name=name)
+        session.add(new_cat)
+        session.commit()
+        return {"message": "Category created", "name": name}
+
+@router.put("/categories/{old_name}")
+def update_category(old_name: str, new_name: str = Form(...), current_user: User = Depends(get_current_user)):
+    new_name = new_name.strip()
+    if not new_name:
+        raise HTTPException(400, "New category name cannot be empty")
+        
+    with Session(engine) as session:
+        cat = session.exec(select(Category).where(Category.name == old_name)).first()
+        if not cat:
+            raise HTTPException(404, "Category not found")
+            
+        existing = session.exec(select(Category).where(Category.name == new_name)).first()
+        if existing:
+            raise HTTPException(400, "Category with that new name already exists")
+            
+        # Update category
+        cat.name = new_name
+        
+        # Sync old category names in products
+        products = session.exec(select(Product).where(Product.category == old_name)).all()
+        for p in products:
+            p.category = new_name
+            
+        # Sync old category names in UserArea? 
+        # Actually UserArea doesn't exist as a model directly for assignment, users store it as JSON string or UserArea table? 
+        # Wait, UserArea IS a model in database? Let me check models.py
+        user_areas = session.exec(select(UserArea).where(UserArea.category == old_name)).all()
+        for ua in user_areas:
+            ua.category = new_name
+            
+        session.commit()
+        return {"message": "Category updated", "old_name": old_name, "new_name": new_name}
+
+@router.delete("/categories/{name}")
+def delete_category(name: str, current_user: User = Depends(get_current_user)):
+    with Session(engine) as session:
+        cat = session.exec(select(Category).where(Category.name == name)).first()
+        if not cat:
+            raise HTTPException(404, "Category not found")
+            
+        session.delete(cat)
+        
+        # Also remove from UserArea so users don't have broken areas
+        user_areas = session.exec(select(UserArea).where(UserArea.category == name)).all()
+        for ua in user_areas:
+            session.delete(ua)
+            
+        session.commit()
+        return {"message": "Category deleted"}
 
 
 # ─────────────────────────────────────────────

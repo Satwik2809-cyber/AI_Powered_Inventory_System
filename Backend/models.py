@@ -18,6 +18,16 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # -------------------------
+# CATEGORY
+# -------------------------
+class Category(SQLModel, table=True):
+    __tablename__ = "categories"  # type: ignore
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+# -------------------------
 # PRODUCT (MASTER)
 # -------------------------
 class Product(SQLModel, table=True):

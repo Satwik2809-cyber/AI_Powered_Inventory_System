@@ -26,9 +26,7 @@ import {
 import { UserPlus, Eye, Shield, Edit, CalendarDays, MapPin, TrendingUp, Sparkles, CheckCircle, Key } from "lucide-react";
 
 /* ---------------- CONSTANTS ---------------- */
-const AREAS = [
-  "Homecare", "Consumable", "Selfcare", "Books", "Lockets", "Medicine", "Masala", "Oil", "Bracelet", "Mala", "Key Ring", "Calendars", "Other SAP", "Pen", "Swaroop", "Stickers", "Blocks", "Akhand Gyan", "Akhand Gyan Set",
-];
+// Areas/Categories are now fetched dynamically from the database.
 
 /* ---------------- TYPES ---------------- */
 interface EventType {
@@ -52,10 +50,117 @@ interface User {
   assigned_events: AssignedEvent[];
 }
 
+function CategoriesTab({ areas, loadData }: { areas: string[], loadData: () => void }) {
+  const [newCat, setNewCat] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editOldName, setEditOldName] = useState("");
+  const [editNewName, setEditNewName] = useState("");
+
+  async function handleAdd() {
+    if (!newCat.trim()) return;
+    try {
+      const formData = new URLSearchParams();
+      formData.append("name", newCat);
+      await apiPost("/categories", formData, { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      toast.success("Category added!");
+      setNewCat("");
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to add category");
+    }
+  }
+
+  async function handleEdit() {
+    if (!editNewName.trim()) return;
+    try {
+      const formData = new URLSearchParams();
+      formData.append("new_name", editNewName);
+      await apiPut(`/categories/${encodeURIComponent(editOldName)}`, formData, { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+      toast.success("Category updated!");
+      setEditOpen(false);
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update category");
+    }
+  }
+
+  async function handleDelete(name: string) {
+    if (!confirm(`Are you sure you want to delete '${name}'? This will remove it from all users and products.`)) return;
+    try {
+      // Assuming apiDelete exists, wait we don't have apiDelete imported? Let me just use standard fetch or add apiDelete.
+      // Wait, apiGet, apiPost, apiPut are in api.ts. We might not have apiDelete.
+      // I can write a quick custom fetch.
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/categories/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      toast.success("Category deleted!");
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete");
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-slate-900/90 border-white/10 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl text-purple-300">Category Management</CardTitle>
+          <p className="text-sm text-slate-400">Add, rename, or delete categories. Changes instantly sync across all products and user assignments.</p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex gap-4 items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-slate-300">New Category Name</Label>
+              <Input className="bg-white/5 border-white/10 text-white focus:border-purple-500" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="e.g. Soaps, Bracelets" />
+            </div>
+            <Button onClick={handleAdd} className="bg-purple-600 hover:bg-purple-500 text-white shadow-lg">Add Category</Button>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-6">
+            {areas.map(a => (
+              <div key={a} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl hover:bg-white/10 transition-colors">
+                <span className="font-semibold text-slate-200 truncate pr-2">{a}</span>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-400 hover:bg-indigo-500/20" onClick={() => { setEditOldName(a); setEditNewName(a); setEditOpen(true); }}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-400 hover:bg-rose-500/20" onClick={() => handleDelete(a)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[400px] border border-white/20 bg-slate-900/95 backdrop-blur-3xl text-white shadow-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-purple-300">Edit Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">Name</Label>
+              <Input className="bg-white/5 border-white/10 text-white" value={editNewName} onChange={(e) => setEditNewName(e.target.value)} />
+            </div>
+            <Button onClick={handleEdit} className="w-full bg-purple-600 hover:bg-purple-500 text-white">Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function BrainVault() {
   /* ---------------- STATE ---------------- */
+  const [activeTab, setActiveTab] = useState<"users" | "categories">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<EventType[]>([]);
+  const [areas, setAreas] = useState<string[]>([]);
   const [stats, setStats] = useState<any>(null);
 
   const [loading, setLoading] = useState(false);
@@ -96,6 +201,9 @@ export default function BrainVault() {
 
       const eventsData = await apiGet("/events");
       setEvents(eventsData.filter((e: EventType) => !['completed', 'closed', 'closed_pending_return'].includes((e.status || "").toLowerCase())));
+      
+      const catsData = await apiGet("/categories");
+      setAreas(catsData);
     } catch {
       toast.error("Failed to load data");
     } finally {
@@ -244,18 +352,40 @@ export default function BrainVault() {
             </p>
           </div>
 
-          <Button
-            onClick={() => setAddOpen(true)}
-            className="bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all duration-300 hover:scale-105 h-12 px-6 rounded-xl"
-          >
-            <UserPlus className="h-5 w-5 mr-2 text-indigo-300" />
-            Add New User
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setActiveTab("users")}
+              className={`h-12 px-6 rounded-xl transition-all duration-300 ${activeTab === 'users' ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.5)]' : 'bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md'}`}
+            >
+              <UserPlus className="h-5 w-5 mr-2" />
+              Users
+            </Button>
+            <Button
+              onClick={() => setActiveTab("categories")}
+              className={`h-12 px-6 rounded-xl transition-all duration-300 ${activeTab === 'categories' ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]' : 'bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md'}`}
+            >
+              <MapPin className="h-5 w-5 mr-2" />
+              Categories
+            </Button>
+            {activeTab === 'users' && (
+              <Button
+                onClick={() => setAddOpen(true)}
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all duration-300 hover:scale-105 h-12 px-6 rounded-xl"
+              >
+                <UserPlus className="h-5 w-5 mr-2 text-indigo-300" />
+                Add New User
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* USERS GRID */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {activeTab === 'categories' && (
+        <CategoriesTab areas={areas} loadData={loadData} />
+      )}
+
+      {activeTab === 'users' && (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {users.map((u) => (
           <div key={u.id} className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-20 group-hover:opacity-60 transition duration-500"></div>
@@ -449,7 +579,7 @@ export default function BrainVault() {
             <div className="space-y-2 pt-2 border-t border-white/10">
               <Label className="text-indigo-300 flex items-center gap-2"><MapPin className="h-4 w-4" /> Assign Standard Areas</Label>
               <div className="flex flex-wrap gap-2">
-                {AREAS.map((a) => (
+                {areas.map((a) => (
                   <Badge
                     key={a}
                     className={`cursor-pointer transition-all duration-200 ${newUser.assigned_areas.includes(a)
@@ -512,7 +642,7 @@ export default function BrainVault() {
               <div className="space-y-3">
                 <Label className="text-indigo-300 font-semibold">Standard Area Restrictions</Label>
                 <div className="flex flex-wrap gap-2 p-3 bg-white/5 rounded-xl border border-white/5">
-                  {AREAS.map((a) => (
+                  {areas.map((a) => (
                     <Badge
                       key={a}
                       className={`cursor-pointer transition-all duration-200 ${editData.assigned_areas.includes(a)

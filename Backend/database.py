@@ -54,6 +54,7 @@ engine = create_engine(
 def create_db_and_tables():
     from models import (
         User,
+        Category,
         Product,
         ProductBatch,
         Event,
@@ -77,6 +78,22 @@ def create_db_and_tables():
             
             # Clean up existing usernames with leading/trailing spaces
             session.execute(text("UPDATE users SET username = TRIM(username) WHERE username != TRIM(username)"))
+            
+            # Seed default categories if none exist
+            from models import Category
+            if not session.query(Category).first():
+                default_categories = [
+                    "Homecare", "Consumable", "Selfcare", "Books", "Lockets", 
+                    "Medicine", "Masala", "Oil", "Bracelet", "Mala", "Key Ring", 
+                    "Calendars", "Other SAP", "Pen", "Swaroop", "Stickers", 
+                    "Blocks", "Akhand Gyan", "Akhand Gyan Set", "Soaps", "Bracelets",
+                    "Bathing Bar", "Agarbatti", "Shampoo", "Dhoop", "Oils", "Clothing", "Other"
+                ]
+                # Unique them
+                default_categories = list(dict.fromkeys(default_categories))
+                
+                for cat_name in default_categories:
+                    session.add(Category(name=cat_name))
             
             session.commit()
         except Exception as e:

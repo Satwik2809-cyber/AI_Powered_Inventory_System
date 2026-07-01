@@ -48,11 +48,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 /* ---------------- CONSTANTS ---------------- */
-const AREAS = [
-  "Homecare", "Consumable", "Selfcare", "Books", "Medicine", "Masala",
-  "Oil", "Bracelet", "Mala", "Key Ring", "Calendars", "Other SAP",
-  "Pen", "Swaroop", "Stickers", "Blocks", "Akhand Gyan", "Akhand Gyan Set"
-];
+const LOW_STOCK_THRESHOLD = 5;
 
 /* ---------------- TYPES ---------------- */
 interface Product {
@@ -92,6 +88,7 @@ export default function MainVault({
 }: { currentUser: User; isAdmin: boolean; setCurrentView: any; initialTab?: string }) {
   /* ---------------- STATE ---------------- */
   const [products, setProducts] = useState<Product[]>([]);
+  const [areas, setAreas] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [stockHistory, setStockHistory] = useState<StockHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -175,8 +172,10 @@ export default function MainVault({
     try {
       const data = await apiGet(`/products`);
       setProducts(data);
+      const catsData = await apiGet(`/categories`);
+      setAreas(catsData);
     } catch {
-      toast.error("Failed to load products");
+      toast.error("Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -521,7 +520,7 @@ export default function MainVault({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
-                          {AREAS.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                          {areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -594,7 +593,7 @@ export default function MainVault({
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
                 <SelectItem value="All">All Categories</SelectItem>
-                {AREAS.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                {areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
@@ -1039,11 +1038,11 @@ export default function MainVault({
                 <div className="space-y-1.5">
                   <Label className="text-slate-300">Category</Label>
                   <Select value={editProduct.category} onValueChange={(v) => setEditProduct({ ...editProduct, category: v })}>
-                    <SelectTrigger className="bg-white/5 border-white/10 text-white focus:ring-emerald-500">
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-white/10 text-white max-h-60">
-                      {AREAS.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                      {areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
