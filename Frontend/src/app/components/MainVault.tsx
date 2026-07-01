@@ -670,7 +670,7 @@ export default function MainVault({
 
         {/* DAILY POINT OF SALE TAB */}
         <TabsContent value="sell" className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[700px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[calc(100vh-120px)] lg:min-h-[600px]">
 
             {/* Left Column: POS Entry */}
             <Card className="lg:col-span-8 bg-slate-900/90 border border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col overflow-hidden relative">
@@ -736,7 +736,21 @@ export default function MainVault({
                           <div className="flex-1 pr-4">
                             <p className="font-bold text-white text-lg">{(c as any).name} {(c as any).is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0 text-sm">🎁 Gift</Badge>}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge className="bg-slate-800 text-slate-300 border-white/5 text-xs">Qty: {c.quantity}</Badge>
+                              <span className="text-slate-400 text-xs font-bold">Qty:</span>
+                              <input
+                                type="number"
+                                className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-sm text-white text-center focus:outline-none focus:border-emerald-500"
+                                value={c.quantity}
+                                min="1"
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (!isNaN(val) && val > 0) {
+                                    const newCart = [...cart];
+                                    newCart[i].quantity = val;
+                                    setCart(newCart);
+                                  }
+                                }}
+                              />
                               <span className="text-slate-500 text-sm">× ₹{c.rate}</span>
                             </div>
                           </div>
@@ -1140,7 +1154,7 @@ export default function MainVault({
             {confirmOptions.map((opt, idx) => (
               <div key={idx} className="flex items-center justify-between border border-white/10 bg-white/5 p-4 rounded-xl hover:bg-white/10 hover:border-teal-500/50 cursor-pointer transition-all"
                 onClick={() => {
-                  const qty = sellQty ? Number(sellQty) : 1;
+                  const qty = opt.quantity || (sellQty ? Number(sellQty) : 1);
                   setCart(prev => [...prev, {
                     product_id: opt.id, name: opt.name, category: opt.category,
                     quantity: qty, rate: opt.rate

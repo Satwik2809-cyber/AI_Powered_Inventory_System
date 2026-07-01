@@ -961,14 +961,9 @@ def download_event_excel_summary(event_name: str):
                 if restock_texts:
                     restock_str = " | ".join(restock_texts)
 
-            if event.status in ["completed", "closed", "closed_pending_return"]:
-                balance = qty_remaining
-                sell = qty_sold
-                amt = amount
-            else:
-                balance = ""
-                sell = ""
-                amt = ""
+            balance = qty_remaining
+            sell = qty_sold if qty_sold > 0 else "-"
+            amt = amount if amount > 0 else "-"
             
             overall_ws.append([
                 product.name,
@@ -982,6 +977,12 @@ def download_event_excel_summary(event_name: str):
 
         # Add grand total row
         overall_ws.append(["", "", "", "", "", "GRAND TOTAL:", grand_total_sale])
+        
+        # Add Cash/Online breakdown
+        total_cash = sum(s.total_amount for s in sales if s.payment_mode == 'cash')
+        total_online = sum(s.total_amount for s in sales if s.payment_mode != 'cash')
+        overall_ws.append(["", "", "", "", "", "CASH:", total_cash])
+        overall_ws.append(["", "", "", "", "", "ONLINE:", total_online])
         
         # Adjust column widths
         for col in overall_ws.columns:

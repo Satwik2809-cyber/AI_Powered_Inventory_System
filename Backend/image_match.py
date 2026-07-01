@@ -235,7 +235,8 @@ def decide_image_match(results):
         }
 
     # 🤔 Ask user confirmation
-    if top["confidence"] >= 0.65:
+    # Drop threshold from 0.65 to 0.50 to allow OCR partial matches to prompt confirmation
+    if top["confidence"] >= 0.50:
         return {
             "status": "confirm",
             "options": results

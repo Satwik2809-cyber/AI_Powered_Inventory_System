@@ -589,7 +589,7 @@ export default function UserVault({ currentUser }: any) {
           </Card>
 
           {/* POINT OF SALE PANEL (Right Column) */}
-          <Card className="lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col h-[700px] relative overflow-hidden">
+          <Card className="lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col h-[calc(100vh-100px)] min-h-[500px] relative overflow-hidden">
             <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
 
             <CardHeader className="border-b border-white/10 bg-white/5 pb-4">
@@ -731,7 +731,24 @@ export default function UserVault({ currentUser }: any) {
                         <div key={i} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl hover:bg-white/10 transition-colors">
                           <div className="min-w-0 flex-1 pr-2">
                             <p className="font-bold text-white truncate text-sm">{c.name} {c.is_gift && <Badge className="ml-2 bg-purple-500/20 text-purple-300 border-0">🎁 Gift</Badge>}</p>
-                            <p className="text-xs text-slate-400">Qty: {c.quantity} × ₹{c.rate}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-slate-400">Qty:</span>
+                              <input
+                                type="number"
+                                className="w-16 bg-black/30 border border-white/10 rounded px-1 text-xs text-white text-center h-6 focus:outline-none focus:border-emerald-500"
+                                value={c.quantity}
+                                min="1"
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (!isNaN(val) && val > 0) {
+                                    const newCart = [...cart];
+                                    newCart[i].quantity = val;
+                                    setCart(newCart);
+                                  }
+                                }}
+                              />
+                              <span className="text-xs text-slate-400">× ₹{c.rate}</span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className={`font-bold ${c.is_gift ? 'text-slate-500 line-through' : 'text-emerald-400'}`}>₹{c.quantity * c.rate}</span>
@@ -836,7 +853,7 @@ export default function UserVault({ currentUser }: any) {
                 key={idx}
                 className="flex items-center justify-between border border-white/10 bg-white/5 p-4 rounded-xl hover:bg-white/10 hover:border-teal-500/50 cursor-pointer transition-all"
                 onClick={() => {
-                  handleAddItems([{ name: opt.name, quantity: 1 }]);
+                  handleAddItems([{ name: opt.name, quantity: opt.quantity || (sellQty ? Number(sellQty) : 1) }]);
                   setConfirmOpen(false);
                 }}
               >
