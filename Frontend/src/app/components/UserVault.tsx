@@ -589,7 +589,7 @@ export default function UserVault({ currentUser }: any) {
           </Card>
 
           {/* POINT OF SALE PANEL (Right Column) */}
-          <Card className="lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col h-[calc(100vh-100px)] min-h-[500px] relative overflow-hidden">
+          <Card className="lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-white/10 backdrop-blur-xl rounded-3xl shadow-xl flex flex-col h-[calc(100vh-100px)] min-h-[550px] relative overflow-hidden">
             <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
 
             <CardHeader className="border-b border-white/10 bg-white/5 pb-4">
@@ -744,7 +744,7 @@ export default function UserVault({ currentUser }: any) {
                   </div>
 
                   {/* Cart Items Area */}
-                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
+                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 min-h-[100px]">
                     {cart.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60">
                         <ShoppingCart className="h-12 w-12 mb-2" />

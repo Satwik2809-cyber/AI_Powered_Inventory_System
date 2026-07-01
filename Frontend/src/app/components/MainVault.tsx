@@ -726,7 +726,7 @@ export default function MainVault({
                 </div>
 
                 {/* Cart Items */}
-                <div className="flex-1 overflow-y-auto bg-black/10 border border-white/5 rounded-2xl p-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto bg-black/10 border border-white/5 rounded-2xl p-4 custom-scrollbar min-h-[100px]">
                   {cart.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-500/50">
                       <ShoppingCart className="h-16 w-16 mb-4" />
