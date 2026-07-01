@@ -598,7 +598,7 @@ export default function UserVault({ currentUser }: any) {
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="flex-1 p-0 flex flex-col relative">
+            <CardContent className="flex-1 p-0 flex flex-col relative min-h-0">
 
               {!dayStarted && (
                 <div className="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-3xl">
@@ -626,11 +626,11 @@ export default function UserVault({ currentUser }: any) {
 
           {/* EVENT ALERTS BANNER */}
           {dayStarted && eventAlerts.length > 0 && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mt-6">
+            <div className="shrink-0 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mx-4 mt-4 mb-2">
               <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2">
                 <Bell className="w-5 h-5" /> Event Alerts ({eventAlerts.length})
               </h3>
-              <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+              <div className="space-y-2 max-h-24 overflow-y-auto custom-scrollbar pr-2">
                 {eventAlerts.map(alert => (
                   <div key={alert.id} className="flex gap-2 items-start text-sm">
                     <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${alert.severity === 'critical' ? 'text-red-400' : 'text-orange-400'}`} />
@@ -647,7 +647,7 @@ export default function UserVault({ currentUser }: any) {
           {posTab === "cart" ? (
                 <>
                   {/* Input Section */}
-                  <div className="p-4 space-y-4 bg-black/20">
+                  <div className="shrink-0 p-4 space-y-4 bg-black/20">
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -767,7 +767,7 @@ export default function UserVault({ currentUser }: any) {
                   </div>
 
                   {/* Checkout Footer */}
-                  <div className="p-4 border-t border-white/10 bg-black/40 backdrop-blur-md mt-auto">
+                  <div className="shrink-0 p-4 border-t border-white/10 bg-black/40 backdrop-blur-md mt-auto">
                     <div className="flex justify-between items-end mb-4">
                       <div className="space-y-1 w-1/2">
                         <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Payment Method</p>
